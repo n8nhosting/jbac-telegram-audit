@@ -5,6 +5,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DB_PATH=/data/audit.db \
     TZ=Asia/Yangon
 
+# curl: Coolify's health probe runs curl/wget inside the container; python:slim ships neither
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /srv
 
 COPY requirements.txt ./
@@ -18,6 +21,6 @@ VOLUME ["/data"]
 
 EXPOSE 8000
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5).status == 200 else 1)"
+  CMD curl -fsS http://127.0.0.1:8000/healthz || exit 1
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
