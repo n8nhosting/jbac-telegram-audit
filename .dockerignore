@@ -1,0 +1,17 @@
+.venv/
+.git/
+.superpowers/
+__pycache__/
+*.pyc
+data/
+dashboard/
+docs/
+tests/
+tools/tests/
+tools/extract_channels.py
+tools/probe_tme.py
+tools/build_dashboard_data.py
+*.xlsx
+*.md
+*.db
+*.session

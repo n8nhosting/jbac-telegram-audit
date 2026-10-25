@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Platinum audit{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Noto+Sans+Myanmar:wght@400;600&display=swap">
+<style>
+:root{--bg:#f6f5f2;--fg:#1d1d1b;--muted:#6b6a66;--panel:#fff;--line:#e3e1dc;--ok:#1b7f4b;--warn:#b7791f;--bad:#b42318;--info:#3b5bdb;--accent:#4a3f7a}
+@media (prefers-color-scheme: dark){:root{--bg:#141412;--fg:#ececea;--muted:#a3a19b;--panel:#1e1e1b;--line:#33322e;--ok:#4cc38a;--warn:#e2b03a;--bad:#f4857a;--info:#8fa3ff;--accent:#b5a8f5}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.6 system-ui,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans Myanmar","Myanmar Text","Pyidaungsu",sans-serif;font-variant-numeric:tabular-nums}
+a{color:var(--info)}.wrap{max-width:1280px;margin:0 auto;padding:12px max(16px,env(safe-area-inset-right)) 32px max(16px,env(safe-area-inset-left))}
+header.top{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:12px}
+header.top h1{font-size:18px;margin:0;font-weight:600}header.top .meta{color:var(--muted);font-size:12px}
+.langs{display:inline-flex;gap:6px;margin-left:8px;font-size:12px;vertical-align:middle}.langs a{text-decoration:none;padding:0 6px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}.langs a.on{color:var(--fg);border-color:var(--fg)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,120px),1fr));gap:8px;margin:12px 0}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;text-decoration:none;color:inherit}
+.kpi .n{font-size:22px;font-weight:600;line-height:1.1}.kpi .l{font-size:12px;color:var(--muted)}
+.kpi.sel{outline:2px solid var(--accent)}
+.kpi.bad .n{color:var(--bad)}.kpi.warn .n{color:var(--warn)}.kpi.ok .n{color:var(--ok)}.kpi.info .n{color:var(--info)}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0;font-size:13px}
+.tools input,.tools select,.tools button{font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--fg)}
+.tablebox{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{position:sticky;top:0;background:var(--panel);font-weight:600;color:var(--muted);white-space:nowrap}
+td.num,th.num{text-align:right}td.name{min-width:14rem;max-width:26rem;overflow-wrap:anywhere}
+.pill{display:inline-block;padding:0 8px;border-radius:999px;font-size:12px;border:1px solid var(--line);white-space:nowrap}
+.pill.ok{color:var(--ok);border-color:currentColor}.pill.missed,.pill.invalid,.pill.dead,.pill.pin_missing{color:var(--bad);border-color:currentColor}
+.pill.waiting{color:var(--warn);border-color:currentColor}.pill.unverifiable,.pill.manual{color:var(--info);border-color:currentColor}.pill.paused{color:var(--muted)}
+.muted{color:var(--muted)}.small{font-size:12px}.empty{padding:32px;text-align:center;color:var(--muted);background:var(--panel);border:1px dashed var(--line);border-radius:8px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:12px}.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px}
+.card h3{margin:0 0 8px;font-size:14px}code{font-size:12px;background:var(--bg);padding:0 4px;border-radius:4px}
+@media (max-width:40rem){.hide-sm{display:none}}
+</style>
+</head>
+<body><div class="wrap">
+<header class="top">
+  <h1><a href="/?lang={{ lang }}" style="color:inherit;text-decoration:none">Platinum audit</a> <span class="muted small">{{ t('app.subtitle') }} · {{ tz }}</span>
+    <span class="langs">{% for l in langs %}<a href="{{ switch[l] }}" class="{% if l == lang %}on{% endif %}" hreflang="{{ l }}">{{ lang_names[l] }}</a>{% endfor %}</span></h1>
+  <div class="meta">{% block meta %}{% endblock %}</div>
+</header>
+{% block body %}{% endblock %}
+</div></body>
+</html>

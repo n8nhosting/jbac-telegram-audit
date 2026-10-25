@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Platinum audit — {{ day }}{% endblock %}
+{% block meta %}{{ t('meta.contracts', n=n_contracts) }} · {{ t('meta.last_collect', t=(last_collect or t('meta.never'))) }} · {{ t('meta.hashtag') }} <code>{{ hashtag }}</code>{% if not mtproto %} · {{ t('meta.mtproto_off') }}{% endif %}{% endblock %}
+{% block body %}
+<div class="tools">
+  <a href="/?date={{ prev_day }}{% if status %}&status={{ status }}{% endif %}">{{ t('nav.prev') }}</a>
+  <form method="get" style="display:inline-flex;gap:6px;align-items:center">
+    <input type="date" name="date" value="{{ day }}" id="date">
+    <select name="status" id="status">
+      <option value="" {% if not status %}selected{% endif %}>{{ t('nav.all_status') }}</option>
+      {% for k in status_keys %}
+      <option value="{{ k }}" {% if status==k %}selected{% endif %}>{{ sl(k) }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">{{ t('nav.view') }}</button>
+  </form>
+  <a href="/?date={{ next_day }}{% if status %}&status={{ status }}{% endif %}">{{ t('nav.next') }}</a>
+  {% if day != today %}<a href="/">{{ t('nav.today') }}</a>{% endif %}
+  <span class="muted">· <a href="/export.csv?from={{ day }}&to={{ day }}">{{ t('nav.csv') }}</a> · <a href="/api/summary?date={{ day }}">JSON</a></span>
+</div>
+
+{% if n_contracts == 0 %}
+<div class="empty">{{ t('empty.no_data') }}</div>
+{% else %}
+<section class="kpis">
+  <a class="kpi bad {% if status=='missed' %}sel{% endif %}" href="/?date={{ day }}&status=missed"><div class="n">{{ counts.missed }}</div><div class="l">{{ t('kpi.missed') }}</div></a>
+  <a class="kpi bad {% if status=='invalid' %}sel{% endif %}" href="/?date={{ day }}&status=invalid"><div class="n">{{ counts.invalid }}</div><div class="l">{{ t('kpi.invalid') }}</div></a>
+  <a class="kpi bad {% if status=='pin_missing' %}sel{% endif %}" href="/?date={{ day }}&status=pin_missing"><div class="n">{{ counts.pin_missing }}</div><div class="l">{{ t('kpi.pin_missing') }}</div></a>
+  <a class="kpi info {% if status=='unverifiable' %}sel{% endif %}" href="/?date={{ day }}&status=unverifiable"><div class="n">{{ counts.unverifiable }}</div><div class="l">{{ t('kpi.unverifiable') }}</div></a>
+  <a class="kpi warn {% if status=='waiting' %}sel{% endif %}" href="/?date={{ day }}&status=waiting"><div class="n">{{ counts.waiting }}</div><div class="l">{{ t('kpi.waiting') }}</div></a>
+  <a class="kpi ok {% if status=='ok' %}sel{% endif %}" href="/?date={{ day }}&status=ok"><div class="n">{{ counts.ok }}</div><div class="l">{{ t('kpi.ok') }}</div></a>
+  <a class="kpi {% if status=='dead' %}sel{% endif %}" href="/?date={{ day }}&status=dead"><div class="n">{{ counts.dead }}</div><div class="l">{{ t('kpi.dead') }}</div></a>
+  <div class="kpi"><div class="n">{{ summary.posts }}</div><div class="l">{{ t('kpi.posts', d=day) }}</div></div>
+</section>
+
+<div class="tablebox">
+<table>
+<thead><tr>
+  <th>{{ t('th.status') }}</th><th>{{ t('th.channel_contract') }}</th><th class="hide-sm">{{ t('th.terms') }}</th><th class="num">{{ t('th.passed_required') }}</th><th class="hide-sm">{{ t('th.pin') }}</th>
+  <th class="num hide-sm">{{ t('th.missed_30d') }}</th><th class="hide-sm">{{ t('th.last_post') }}</th><th class="num hide-sm">{{ t('th.fee') }}</th><th class="num hide-sm">{{ t('th.last_reg') }}</th><th>{{ t('th.evidence') }}</th>
+</tr></thead>
+<tbody>
+{% for r in rows %}
+<tr>
+  <td><span class="pill {{ r.status or 'none' }}">{{ r.status_label }}</span></td>
+  <td class="name"><a href="/contracts/{{ r.id }}?date={{ day }}">{{ r.names_list|join(" / ") or r.sheet_contract_id }}</a>
+    <div class="small muted">{{ r.sheet_contract_id }} · {{ t('row.channels', n=r.n_channels) }} · {{ r.admins_list|join(" ") }}</div>
+    {% if r.notes_obj.notes %}<div class="small muted">{{ r.notes_obj.notes|join(" · ") }}</div>{% endif %}</td>
+  <td class="hide-sm small">{% if r.quota_type=='daily_post' %}{{ t('row.posts_per_day', n=r.quota_posts_per_day) }}{% else %}{{ t('row.custom') }}{% endif %}<br>{{ r.pin_label }}</td>
+  <td class="num">{% if r.required is not none %}{{ r.qualified }}/{{ r.required }}{% else %}—{% endif %}</td>
+  <td class="hide-sm">{% if r.pin_ok is none %}—{% elif r.pin_ok %}✅{% else %}❌{% endif %}</td>
+  <td class="num hide-sm">{{ r.missed_30d }}</td>
+  <td class="hide-sm small">{{ (r.last_post_at or "—")[:16] }}</td>
+  <td class="num hide-sm">{{ "{:,}".format(r.amount_mmk) if r.amount_mmk else "—" }}</td>
+  <td class="num hide-sm">{{ r.last_reg if r.last_reg is not none else "—" }}</td>
+  <td><a href="/contracts/{{ r.id }}?date={{ day }}">{{ t('row.view') }}</a></td>
+</tr>
+{% else %}
+<tr><td colspan="10" class="muted">{{ t('row.none_in_status') }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+<p class="small muted">{{ t('footer.note', tz=tz) }}</p>
+{% endif %}
+{% endblock %}

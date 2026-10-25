@@ -1,0 +1,17 @@
+# business data derived from the Excel sheet — never in the (possibly public) repo; import via POST /admin/import
+data/
+dashboard/data/
+dashboard/store/
+*.xlsx
+# runtime
+*.db
+*.db-wal
+*.db-shm
+*.session
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+node_modules/
+.superpowers/

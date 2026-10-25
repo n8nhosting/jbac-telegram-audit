@@ -1,0 +1,46 @@
+{
+ "generated_at": "2026-10-25T18:28:00",
+ "source_sheet": "October 2026 MKT Pla",
+ "contracts": [
+  {
+   "contract_id": "2026-10-r005", "month": "2026-10", "row": 5, "section": "only_us",
+   "names": ["Chan A"], "admin_accounts": ["@admin_a"], "streak_months": 33,
+   "period_from": "2026-10-01", "period_to": "2026-10-31", "period_raw": "1.10.26 - 31.10.26",
+   "quota_type": "daily_post", "quota_posts_per_day": 1, "pin_rule": "daily", "exclusivity": 1,
+   "amount_mmk": 450000, "payment1_mmk": null, "payment2_mmk": 450000, "payment_date_raw": "3.10.26",
+   "status_sheet": "On Process",
+   "reg_history": [{"month": "Sep", "reg": 2}, {"month": "Aug", "reg": 0}],
+   "sub_view_raw": "sub -346K", "sub_view": {"subs": [346000], "views_3d": [], "views_7d": []},
+   "remark_raw": "1 day 1 post / pin daily / only us", "payment_channel_raw": "Kpay - X",
+   "posted_date_raw": null, "old_name": "Old A",
+   "old_links": [{"kind": "public", "url": "https://t.me/OldA", "username": "olda", "invite_hash": null, "sample_post_id": null}],
+   "links": [{"kind": "public", "url": "https://t.me/ChanA", "username": "chana", "invite_hash": null, "sample_post_id": null}],
+   "primary_channel_id": "pub:chana", "price_history_note": "400000", "flags": []
+  },
+  {
+   "contract_id": "2026-10-r006", "month": "2026-10", "row": 6, "section": "only_two",
+   "names": ["Chan B", "Chan C"], "admin_accounts": ["@b1", "@b2"], "streak_months": 5,
+   "period_from": "2026-10-02", "period_to": "2026-11-02", "period_raw": "2.10.26 - 2.11.26",
+   "quota_type": "daily_post", "quota_posts_per_day": 1, "pin_rule": "per_month:4", "exclusivity": 2,
+   "amount_mmk": 100000, "payment1_mmk": null, "payment2_mmk": 100000, "payment_date_raw": "2.10.26",
+   "status_sheet": "On Process",
+   "reg_history": [{"month": "Sep", "reg": 1}],
+   "sub_view_raw": "sub -10K/20K", "sub_view": {"subs": [10000, 20000], "views_3d": [], "views_7d": []},
+   "remark_raw": "1 day 1 post / 1 month 4 pin / only two", "payment_channel_raw": null,
+   "posted_date_raw": null, "old_name": null, "old_links": [],
+   "links": [
+    {"kind": "private", "url": "https://t.me/+AAAA1111", "username": null, "invite_hash": "AAAA1111", "sample_post_id": null},
+    {"kind": "public", "url": "https://t.me/chanc", "username": "chanc", "invite_hash": null, "sample_post_id": 77},
+    {"kind": "external", "url": "https://www.facebook.com/x", "username": null, "invite_hash": null, "sample_post_id": null}
+   ],
+   "primary_channel_id": "prv:AAAA1111", "price_history_note": null, "flags": []
+  }
+ ],
+ "channels": [
+  {"channel_id": "pub:chana", "contract_id": "2026-10-r005", "month": "2026-10", "kind": "public", "username": "chana", "invite_hash": null, "url": "https://t.me/ChanA", "sample_post_id": null, "name": "Chan A", "is_old_link": false, "section": "only_us", "exclusivity": 1, "quota_type": "daily_post", "quota_posts_per_day": 1, "pin_rule": "daily", "amount_mmk_contract": 450000, "admin_accounts": ["@admin_a"]},
+  {"channel_id": "pub:olda", "contract_id": "2026-10-r005", "month": "2026-10", "kind": "public", "username": "olda", "invite_hash": null, "url": "https://t.me/OldA", "sample_post_id": null, "name": "Old A", "is_old_link": true, "section": "only_us", "exclusivity": 1, "quota_type": "daily_post", "quota_posts_per_day": 1, "pin_rule": "daily", "amount_mmk_contract": 450000, "admin_accounts": ["@admin_a"]},
+  {"channel_id": "prv:AAAA1111", "contract_id": "2026-10-r006", "month": "2026-10", "kind": "private", "username": null, "invite_hash": "AAAA1111", "url": "https://t.me/+AAAA1111", "sample_post_id": null, "name": "Chan B", "is_old_link": false, "section": "only_two", "exclusivity": 2, "quota_type": "daily_post", "quota_posts_per_day": 1, "pin_rule": "per_month:4", "amount_mmk_contract": 100000, "admin_accounts": ["@b1", "@b2"]},
+  {"channel_id": "pub:chanc", "contract_id": "2026-10-r006", "month": "2026-10", "kind": "public", "username": "chanc", "invite_hash": null, "url": "https://t.me/chanc", "sample_post_id": 77, "name": "Chan C", "is_old_link": false, "section": "only_two", "exclusivity": 2, "quota_type": "daily_post", "quota_posts_per_day": 1, "pin_rule": "per_month:4", "amount_mmk_contract": 100000, "admin_accounts": ["@b1", "@b2"]},
+  {"channel_id": "ext:https://www.facebook.com/x", "contract_id": "2026-10-r006", "month": "2026-10", "kind": "external", "username": null, "invite_hash": null, "url": "https://www.facebook.com/x", "sample_post_id": null, "name": "Chan C", "is_old_link": false, "section": "only_two", "exclusivity": 2, "quota_type": "daily_post", "quota_posts_per_day": 1, "pin_rule": "per_month:4", "amount_mmk_contract": 100000, "admin_accounts": ["@b1", "@b2"]}
+ ]
+}

@@ -1,0 +1,568 @@
+<style>
+/* Platinum Marketing Plan — page inside #dash-root. Tokens come from the dashboard type (light/dark follow the theme). */
+.pm{font-family:var(--font-anthropic-sans);font-variant-numeric:tabular-nums;display:grid;gap:var(--cds-gap-lg);min-width:0}
+.pm h1{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);margin:0;line-height:1.2}
+.pm .pm-take{color:var(--color-fg-muted);margin:var(--cds-gap-xs) 0 0;max-width:70ch}
+.pm .pm-take b{font-weight:var(--cds-font-weight-medium);color:var(--color-fg)}
+.pm h2.pm-sec{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:var(--cds-gap-sm) 0 0}
+.pm-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:var(--cds-gap-md)}
+.pm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr));gap:var(--cds-gap-md)}
+.pm-card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg);min-width:0}
+.pm-card h3{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:0 0 var(--cds-gap-xs)}
+.pm-card .pm-note{color:var(--color-fg-muted);font-size:var(--cds-font-size-caption);margin:0 0 var(--cds-gap-md)}
+.pm-tile .pm-label{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.pm-tile .pm-value{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);line-height:1.2;margin-top:var(--cds-gap-xs);min-height:1.2em}
+.pm-tile .pm-delta{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin-top:var(--cds-gap-xs);min-height:1.2em}
+.pm-tile .pm-delta.pm-bad{color:var(--color-bad)}
+.pm-chart{position:relative;min-height:260px}
+.pm-chart svg{width:100%;height:auto;display:block}
+.pm-chart.pm-short{min-height:220px}
+.pm-tip{position:absolute;pointer-events:none;background:var(--cds-surface-popover);border:1px solid var(--cds-border);border-radius:var(--cds-radius);box-shadow:var(--cds-shadow-popover);padding:var(--cds-pad-xs) var(--cds-pad-sm);font-size:var(--cds-font-size-caption);z-index:2;white-space:nowrap}
+.pm-tip div:first-child{color:var(--cds-text-secondary)}
+.pm-legend{display:flex;flex-wrap:wrap;gap:var(--cds-gap-sm) var(--cds-gap-md);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin:0 0 var(--cds-gap-sm)}
+.pm-sw{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;margin-right:.35rem;vertical-align:-1px}
+.pm-tablebox{max-height:30rem;overflow:auto;border-top:1px solid var(--color-border-line)}
+.pm table{border-collapse:collapse;width:100%;font-size:var(--cds-font-size-body)}
+.pm th{position:sticky;top:0;background:var(--color-panel);text-align:left;font-weight:var(--cds-font-weight-medium);border-bottom:1px solid var(--color-border-line);padding:var(--cds-pad-xs) var(--cds-pad-sm);white-space:nowrap;color:var(--color-fg-muted);font-size:var(--cds-font-size-caption)}
+.pm th button{all:unset;cursor:pointer;color:inherit;font:inherit}
+.pm th button:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px;border-radius:2px}
+.pm th[aria-sort="ascending"] button::after{content:" ↑"}
+.pm th[aria-sort="descending"] button::after{content:" ↓"}
+.pm td{padding:var(--cds-pad-xs) var(--cds-pad-sm);border-bottom:1px solid var(--color-border-line);vertical-align:top}
+.pm td.num,.pm th.num{text-align:right}
+.pm td.pm-name{min-width:12rem;max-width:22rem;overflow-wrap:anywhere}
+.pm .pm-bar{display:inline-block;height:.5rem;border-radius:4px;vertical-align:middle;margin-left:.4rem}
+.pm-pill{display:inline-block;padding:0 .45rem;border-radius:999px;font-size:var(--cds-font-size-caption);border:1px solid var(--color-border-line);color:var(--color-fg-muted);white-space:nowrap}
+.pm-pill.pm-bad{color:var(--color-bad);border-color:currentColor}
+.pm-search{width:100%;max-width:24rem;box-sizing:border-box;font:inherit;padding:var(--cds-pad-xs) var(--cds-pad-sm);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);background:var(--color-bg);color:var(--color-fg);margin-bottom:var(--cds-gap-sm)}
+.pm-search:focus-visible{outline:2px solid var(--color-fg);outline-offset:1px}
+.pm .pm-fail{display:flex;align-items:center;justify-content:center;gap:.45rem;color:var(--color-fg-muted);font-size:var(--cds-font-size-caption);min-height:inherit}
+.pm .pm-fail::before{content:"";width:.375rem;height:.375rem;border-radius:50%;background:var(--color-bad)}
+.pm [data-dash-source-state=empty]{color:transparent}
+.pm [data-dash-source-state=refreshing]{opacity:.5;transition:opacity var(--cds-dur-slow)}
+.pm .pm-def{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin:var(--cds-gap-sm) 0 0}
+@media (max-width:40rem){.pm .pm-hide-sm{display:none}}
+</style>
+
+<div class="pm" id="pm-page">
+  <header id="pm-head">
+    <h1>Platinum Marketing Plan</h1>
+    <p class="pm-take" id="pm-take">
+      <span id="pm-month">—</span>: จ้างช่อง
+      <b data-source="kpi" data-field="contracts" data-row="0">—</b> สัญญา รวม
+      <b data-source="kpi" data-field="spend" data-row="0">—</b> MMK ·
+      <b data-source="kpi" data-field="zero_reg_contracts" data-row="0">—</b> สัญญาไม่มีผู้สมัครเลยตลอด 3–4 เดือนล่าสุด คิดเป็นค่าจ้าง
+      <b data-source="kpi" data-field="zero_reg_spend" data-row="0">—</b> MMK/เดือน
+    </p>
+  </header>
+
+  <section class="pm-tiles" id="pm-tiles" aria-label="ตัวเลขหลัก">
+    <div class="pm-card pm-tile">
+      <div class="pm-label">สัญญาเดือนนี้</div>
+      <div class="pm-value dash-skeleton" data-source="kpi" data-field="contracts" data-row="0">—</div>
+      <div class="pm-delta"><span data-source="kpi" data-field="contracts_delta" data-row="0">—</span> จากเดือนก่อน</div>
+    </div>
+    <div class="pm-card pm-tile">
+      <div class="pm-label">ยอดจ่ายเดือนนี้ (MMK)</div>
+      <div class="pm-value dash-skeleton" data-source="kpi" data-field="spend" data-row="0">—</div>
+      <div class="pm-delta"><span data-source="kpi" data-field="spend_delta_pct" data-row="0">—</span> จากเดือนก่อน</div>
+    </div>
+    <div class="pm-card pm-tile">
+      <div class="pm-label">ช่องสาธารณะ / ช่องส่วนตัว</div>
+      <div class="pm-value dash-skeleton"><span data-source="kpi" data-field="public_channels" data-row="0">—</span> / <span data-source="kpi" data-field="private_channels" data-row="0">—</span></div>
+      <div class="pm-delta">ช่องส่วนตัวอ่านจากภายนอกไม่ได้ ต้องมีบัญชีสมาชิก</div>
+    </div>
+    <div class="pm-card pm-tile">
+      <div class="pm-label">สัญญาที่ไม่มีผู้สมัคร ≥3 เดือน</div>
+      <div class="pm-value dash-skeleton" data-source="kpi" data-field="zero_reg_contracts" data-row="0">—</div>
+      <div class="pm-delta pm-bad"><span data-source="kpi" data-field="zero_reg_spend" data-row="0">—</span> MMK/เดือน</div>
+    </div>
+    <div class="pm-card pm-tile">
+      <div class="pm-label">ค่าจ้างต่อ 1 ผู้สมัคร (มัธยฐาน)</div>
+      <div class="pm-value dash-skeleton" data-source="kpi" data-field="cost_per_reg_median" data-row="0">—</div>
+      <div class="pm-delta">MMK ต่อ reg เฉพาะสัญญาที่มีผู้สมัคร</div>
+    </div>
+    <div class="pm-card pm-tile">
+      <div class="pm-label">ช่องที่เปลี่ยนชื่อ/ย้ายลิงก์</div>
+      <div class="pm-value dash-skeleton" data-source="kpi" data-field="renamed" data-row="0">—</div>
+      <div class="pm-delta">สัญญาที่มี Old Name หรือ Old Link ในชีต</div>
+    </div>
+  </section>
+
+  <h2 class="pm-sec" id="pm-sec-trend">แนวโน้มรายเดือน</h2>
+  <section class="pm-grid">
+    <div class="pm-card">
+      <h3 id="pm-h-spend">ยอดจ่ายรายเดือน</h3>
+      <p class="pm-note">ผลรวมคอลัมน์ Total amount ของชีตเดือนนั้น (MMK) · ม.ค. 2025 เป็นต้นมา · เดือนที่ยังไม่ถึงแสดงจาง</p>
+      <div class="pm-chart dash-skeleton" id="pm-spend" data-source="monthly kpi"></div>
+    </div>
+    <div class="pm-card">
+      <h3 id="pm-h-channels">จำนวนช่องที่จ้าง</h3>
+      <p class="pm-note">ช่องไม่ซ้ำต่อเดือน แยกสาธารณะ (t.me/ชื่อ) กับส่วนตัว (ลิงก์เชิญ t.me/+)</p>
+      <div class="pm-legend" id="pm-legend-channels"></div>
+      <div class="pm-chart pm-short dash-skeleton" id="pm-channels" data-source="monthly"></div>
+    </div>
+    <div class="pm-card">
+      <h3 id="pm-h-regs">ผู้สมัครใหม่รายเดือนตามแหล่งที่มา</h3>
+      <p class="pm-note">จากชีต Reg List ปี 2026 · ก.ค. 2026 ยังกรอกไม่ครบ</p>
+      <div class="pm-legend" id="pm-legend-regs"></div>
+      <div class="pm-chart pm-short dash-skeleton" id="pm-regs" data-source="regs"></div>
+    </div>
+    <div class="pm-card">
+      <h3 id="pm-h-excl">สัญญาแยกตามจำนวนผู้ลงโฆษณาในช่อง</h3>
+      <p class="pm-note">“เฉพาะเรา” = ช่องรับโฆษณาเราเจ้าเดียว · แถบ = สัดส่วนยอดจ่าย</p>
+      <div class="pm-tablebox">
+        <table id="pm-excl" data-source="by_exclusivity" data-row-key="label">
+          <thead><tr>
+            <th data-field="label">ผู้ลงโฆษณา</th>
+            <th class="num" data-field="contracts">สัญญา</th>
+            <th class="num" data-field="spend">ยอดจ่าย (MMK)</th>
+            <th class="num pm-hide-sm" data-field="share">สัดส่วน</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <h3 id="pm-h-pin" style="margin-top:var(--cds-gap-lg)">เงื่อนไข pin ในสัญญา</h3>
+      <div class="pm-tablebox">
+        <table id="pm-pin" data-source="by_pin" data-row-key="pin_rule">
+          <thead><tr>
+            <th data-field="pin_rule">เงื่อนไข</th>
+            <th class="num" data-field="contracts">สัญญา</th>
+            <th class="num" data-field="spend">ยอดจ่าย (MMK)</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <h2 class="pm-sec" id="pm-sec-zero">สัญญาที่ควรทบทวน</h2>
+  <section class="pm-card">
+    <h3 id="pm-h-zero">ไม่มีผู้สมัครเลยในทุกเดือนที่บันทึก (อย่างน้อย 3 เดือน)</h3>
+    <p class="pm-note">คอลัมน์ Reg ในชีตคือจำนวนผู้สมัครที่มาจากช่องนั้นในแต่ละเดือน · เรียงจากค่าจ้างสูงสุด</p>
+    <div class="pm-tablebox">
+      <table id="pm-zero" data-source="zero_reg_list" data-row-key="contract_id">
+        <thead><tr>
+          <th data-field="name">ช่อง</th>
+          <th class="num" data-field="amount_mmk">ค่าจ้าง/เดือน</th>
+          <th data-field="reg_detail">ผู้สมัครรายเดือน</th>
+          <th class="num pm-hide-sm" data-field="streak_months">เดือนติด</th>
+          <th class="pm-hide-sm" data-field="exclusivity_label">ผู้ลงโฆษณา</th>
+          <th class="pm-hide-sm" data-field="admins">แอดมิน</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <h2 class="pm-sec" id="pm-sec-roster">สัญญาทั้งหมดเดือนนี้</h2>
+  <section class="pm-card">
+    <h3 id="pm-h-roster">รายการสัญญา</h3>
+    <p class="pm-note">คลิกหัวตารางเพื่อเรียง · ค่าจ้างต่อ reg = ค่าจ้าง/เดือน × จำนวนเดือนที่บันทึก ÷ ผู้สมัครรวม</p>
+    <input class="pm-search" id="pm-search" type="search" placeholder="ค้นหาชื่อช่อง แอดมิน หรือเงื่อนไข" aria-label="ค้นหาในตารางสัญญา">
+    <div class="pm-tablebox">
+      <table id="pm-roster" data-source="roster" data-row-key="contract_id">
+        <thead><tr>
+          <th data-field="name"><button type="button">ช่อง</button></th>
+          <th data-field="exclusivity_label"><button type="button">ผู้ลงโฆษณา</button></th>
+          <th class="pm-hide-sm" data-field="pin_rule"><button type="button">pin</button></th>
+          <th class="num" data-field="amount_mmk"><button type="button">ค่าจ้าง/เดือน</button></th>
+          <th class="num pm-hide-sm" data-field="streak_months"><button type="button">เดือนติด</button></th>
+          <th data-field="reg_detail"><button type="button">ผู้สมัครรายเดือน</button></th>
+          <th class="num" data-field="reg_sum"><button type="button">รวม</button></th>
+          <th class="num" data-field="cost_per_reg_mmk"><button type="button">ค่าจ้าง/reg</button></th>
+          <th class="num pm-hide-sm" data-field="public_links"><button type="button">สาธารณะ</button></th>
+          <th class="num pm-hide-sm" data-field="private_links"><button type="button">ส่วนตัว</button></th>
+          <th class="pm-hide-sm" data-field="admins"><button type="button">แอดมิน</button></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="pm-def">ที่มา: ชีต October 2026 MKT Pla ของไฟล์ Platinum Marketing Plan.xlsx · 1 สัญญาอาจครอบคลุมหลายช่อง · ตัวเลข sub/view ในชีตพิมพ์มือจึงไม่นำมาแสดง</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  const N = v => (v === '' || v == null) ? null : Number(v);
+  const isTrue = v => v === true || v === 'True' || v === 'true' || v === '1';
+  const fmtInt = d3.format(',');
+  const fmtPct = d3.format('+.1%');
+  const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+  const TH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  const THF = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  const mShort = m => { const [y, mo] = m.split('-'); return TH[+mo - 1] + ' ' + y.slice(2); };
+  const mLong = m => { const [y, mo] = m.split('-'); return THF[+mo - 1] + ' ' + y; };
+  const EXCL_TH = { 'only us': 'เฉพาะเรา', '2 ads': 'โฆษณา 2 ราย', '3 ads': 'โฆษณา 3 ราย', '4 ads': 'โฆษณา 4 ราย', '5 ads': 'โฆษณา 5 ราย', 'custom': 'ครีเอเตอร์/อื่น ๆ' };
+  const EXCL_ORDER = ['only us', '2 ads', '3 ads', '4 ads', '5 ads', 'custom'];
+  const pinTH = p => {
+    if (!p || p === 'none') return 'ไม่มี pin';
+    if (p === 'daily') return 'pin ทุกวัน';
+    let m = /^per_month:(\d+)$/.exec(p); if (m) return 'pin ' + m[1] + ' ครั้ง/เดือน';
+    m = /^every_days:(\d+)$/.exec(p); if (m) return 'pin ทุก ' + m[1] + ' วัน';
+    return p;
+  };
+
+  // ---------- derived numbers (readers can inspect these in Sources) ----------
+  dash.calc('kpi', {
+    title: 'ตัวเลขหลักเดือนปัจจุบัน',
+    description: 'สรุปจากสัญญาเดือนล่าสุด (roster) เทียบกับเดือนก่อนหน้าในยอดจ้างรายเดือน (monthly)',
+    inputs: ['roster', 'monthly'],
+    fn: (roster, monthly) => {
+      const months = monthly.filter(r => r.era === 'roster').sort((a, b) => a.month < b.month ? -1 : 1);
+      const month = roster.length ? roster[0].contract_id.slice(0, 7) : null;
+      const i = months.findIndex(r => r.month === month);
+      const prev = i > 0 ? months[i - 1] : null;
+      const spend = roster.reduce((s, r) => s + (Number(r.amount_mmk) || 0), 0);
+      const zero = roster.filter(r => r.zero_reg === 'True');
+      const costs = roster.map(r => Number(r.cost_per_reg_mmk)).filter(v => v > 0).sort((a, b) => a - b);
+      const cur = i >= 0 ? months[i] : null;
+      return [{
+        month, month_th: month,
+        contracts: roster.length,
+        contracts_delta: prev ? roster.length - Number(prev.contracts) : null,
+        spend,
+        spend_delta_pct: prev && Number(prev.amount_mmk) ? (spend - Number(prev.amount_mmk)) / Number(prev.amount_mmk) : null,
+        public_channels: cur ? Number(cur.public_channels) : null,
+        private_channels: cur ? Number(cur.private_channels) : null,
+        zero_reg_contracts: zero.length,
+        zero_reg_spend: zero.reduce((s, r) => s + (Number(r.amount_mmk) || 0), 0),
+        cost_per_reg_median: costs.length ? costs[Math.floor(costs.length / 2)] : null,
+        renamed: roster.filter(r => r.renamed === 'True').length,
+      }];
+    },
+  });
+
+  dash.calc('by_exclusivity', {
+    title: 'สัญญาตามจำนวนผู้ลงโฆษณา',
+    description: 'นับสัญญาและรวมค่าจ้างต่อเดือนตามคอลัมน์ exclusivity_label ของ roster; share = ส่วนแบ่งยอดจ่าย',
+    inputs: ['roster'],
+    fn: (roster) => {
+      const total = roster.reduce((s, r) => s + (Number(r.amount_mmk) || 0), 0) || 1;
+      const g = {};
+      roster.forEach(r => { const k = r.exclusivity_label || 'custom'; g[k] = g[k] || { label: k, contracts: 0, spend: 0 }; g[k].contracts += 1; g[k].spend += Number(r.amount_mmk) || 0; });
+      return Object.values(g).map(x => ({ ...x, share: x.spend / total }));
+    },
+  });
+
+  dash.calc('by_pin', {
+    title: 'สัญญาตามเงื่อนไข pin',
+    description: 'นับสัญญาและรวมค่าจ้างต่อเดือนตามคอลัมน์ pin_rule ของ roster',
+    inputs: ['roster'],
+    fn: (roster) => {
+      const g = {};
+      roster.forEach(r => { const k = r.pin_rule || 'none'; g[k] = g[k] || { pin_rule: k, contracts: 0, spend: 0 }; g[k].contracts += 1; g[k].spend += Number(r.amount_mmk) || 0; });
+      return Object.values(g).sort((a, b) => b.contracts - a.contracts);
+    },
+  });
+
+  dash.calc('zero_reg_list', {
+    title: 'สัญญาที่ไม่มีผู้สมัครเลย',
+    description: 'สัญญาใน roster ที่ zero_reg เป็นจริง (บันทึก reg ≥3 เดือนและรวมได้ 0) เรียงตามค่าจ้างมากไปน้อย',
+    inputs: ['roster'],
+    fn: (roster) => roster.filter(r => r.zero_reg === 'True')
+      .map(r => ({ contract_id: r.contract_id, name: r.name, amount_mmk: Number(r.amount_mmk) || 0, reg_detail: r.reg_detail,
+        streak_months: Number(r.streak_months) || null, exclusivity_label: r.exclusivity_label, admins: r.admins }))
+      .sort((a, b) => b.amount_mmk - a.amount_mmk),
+  });
+
+  // ---------- helpers ----------
+  const $ = id => document.getElementById(id);
+  const clear = el => { while (el.firstChild) el.removeChild(el.firstChild); };
+  const bad = s => s === 'error' || s === 'connect' || s === 'declined' || s === 'missing';
+  function stateOf(el, status) {
+    if (status === 'ok') { el.classList.remove('dash-skeleton'); return true; }
+    clear(el);
+    if (bad(status)) { el.classList.remove('dash-skeleton'); const d = document.createElement('div'); d.className = 'pm-fail'; d.textContent = 'Failed to load'; el.appendChild(d); }
+    else el.classList.add('dash-skeleton');
+    return false;
+  }
+  function tipOf(container) {
+    let t = container.querySelector('.pm-tip');
+    if (!t) { t = document.createElement('div'); t.className = 'pm-tip'; t.hidden = true; container.appendChild(t); }
+    return t;
+  }
+  function showTip(t, container, x, y, lines) {
+    clear(t);
+    lines.forEach(l => {
+      const d = document.createElement('div');
+      if (l.color) { const s = document.createElement('span'); s.className = 'pm-sw'; s.style.background = l.color; d.appendChild(s); }
+      d.appendChild(document.createTextNode(l.text));
+      t.appendChild(d);
+    });
+    t.hidden = false;
+    const W = container.clientWidth, tw = t.offsetWidth;
+    t.style.left = Math.max(0, Math.min(W - tw, x + 12)) + 'px';
+    t.style.top = Math.max(0, y - 8) + 'px';
+  }
+  function textWidth(svg, s, size) {
+    const p = svg.append('text').attr('font-size', size).text(s); const w = p.node().getComputedTextLength(); p.remove(); return w;
+  }
+  function legend(el, items) {
+    clear(el);
+    items.forEach(it => { const s = document.createElement('span'); const sw = document.createElement('span'); sw.className = 'pm-sw'; sw.style.background = it.color; s.appendChild(sw); s.appendChild(document.createTextNode(it.label)); el.appendChild(s); });
+  }
+  function setText(sel, text) { document.querySelectorAll(sel).forEach(e => { e.textContent = text; e.classList.remove('dash-skeleton'); }); }
+
+  // ---------- tiles + takeaway ----------
+  function renderKpi(K) {
+    const el = $('pm-tiles');
+    if (K.status !== 'ok') {
+      if (bad(K.status)) el.querySelectorAll('.pm-value').forEach(v => { v.classList.remove('dash-skeleton'); v.textContent = '—'; });
+      return;
+    }
+    const k = K.data[0] || {};
+    const put = (field, text) => setText('[data-source="kpi"][data-field="' + field + '"]', text);
+    $('pm-month').textContent = k.month ? mLong(k.month) : '—';
+    put('contracts', k.contracts != null ? fmtInt(k.contracts) : '—');
+    put('contracts_delta', k.contracts_delta != null ? (k.contracts_delta > 0 ? '+' : '') + fmtInt(k.contracts_delta) : '—');
+    put('spend', k.spend != null ? compact.format(k.spend) : '—');
+    put('spend_delta_pct', k.spend_delta_pct != null ? fmtPct(k.spend_delta_pct) : '—');
+    put('public_channels', k.public_channels != null ? fmtInt(k.public_channels) : '—');
+    put('private_channels', k.private_channels != null ? fmtInt(k.private_channels) : '—');
+    put('zero_reg_contracts', k.zero_reg_contracts != null ? fmtInt(k.zero_reg_contracts) : '—');
+    put('zero_reg_spend', k.zero_reg_spend != null ? compact.format(k.zero_reg_spend) : '—');
+    put('cost_per_reg_median', k.cost_per_reg_median != null ? compact.format(k.cost_per_reg_median) : '—');
+    put('renamed', k.renamed != null ? fmtInt(k.renamed) : '—');
+  }
+
+  // ---------- monthly spend bars ----------
+  function renderSpend(M, K) {
+    const el = $('pm-spend');
+    if (!stateOf(el, M.status)) return;
+    clear(el);
+    const curMonth = K.status === 'ok' && K.data[0] ? K.data[0].month : null;
+    const rows = M.data.filter(r => r.era === 'roster').map(r => ({ month: r.month, v: Number(r.amount_mmk) || 0, n: Number(r.contracts) || 0 })).sort((a, b) => a.month < b.month ? -1 : 1);
+    if (!rows.length) return;
+    const W = Math.max(280, el.clientWidth || 600), H = 260, m = { t: 20, r: 12, b: 28, l: 0 };
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('role', 'img').attr('aria-label', 'ยอดจ่ายรายเดือน');
+    const y = d3.scaleLinear([0, d3.max(rows, d => d.v) || 1], [H - m.b, m.t]).nice();
+    const ticks = y.ticks(4), fy = v => compact.format(v);
+    m.l = Math.ceil(d3.max(ticks, t => textWidth(svg, fy(t), 11)) || 0) + 8;
+    const x = d3.scaleBand(rows.map(d => d.month), [m.l, W - m.r]).paddingInner(0.3).paddingOuter(0.15);
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('x', m.l - 6).attr('y', y).attr('dy', '0.32em').attr('text-anchor', 'end').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text(fy);
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+    const bw = Math.min(32, x.bandwidth());
+    const t = tipOf(el);
+    svg.append('g').selectAll('rect').data(rows).join('rect')
+      .attr('x', d => x(d.month) + (x.bandwidth() - bw) / 2).attr('y', d => y(d.v)).attr('width', bw).attr('height', d => Math.max(0, y(0) - y(d.v)))
+      .attr('rx', 4).attr('fill', dash.colors[0]).attr('opacity', d => (curMonth && d.month > curMonth) ? 0.4 : 1)
+      .on('mouseenter', function (ev, d) {
+        d3.select(this).attr('stroke', 'var(--color-fg)').attr('stroke-width', 1.5);
+        const r = el.getBoundingClientRect(), e = ev;
+        showTip(t, el, e.clientX - r.left, e.clientY - r.top, [{ text: mLong(d.month) + (curMonth && d.month > curMonth ? ' (แผน)' : '') }, { text: 'ยอดจ่าย ' + fmtInt(d.v) + ' MMK', color: dash.colors[0] }, { text: d.n + ' สัญญา' }]);
+      })
+      .on('mouseleave', function () { d3.select(this).attr('stroke', null); t.hidden = true; });
+    const step = rows.length > 14 ? 3 : (rows.length > 7 ? 2 : 1);
+    svg.append('g').selectAll('text').data(rows.filter((d, i) => i % step === 0)).join('text')
+      .attr('x', d => x(d.month) + x.bandwidth() / 2).attr('y', H - m.b + 16).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text(d => mShort(d.month));
+    const last = rows.filter(d => !curMonth || d.month <= curMonth).slice(-1)[0] || rows[rows.length - 1];
+    svg.append('text').attr('x', x(last.month) + x.bandwidth() / 2).attr('y', y(last.v) - 6).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', 'var(--color-fg)').text(compact.format(last.v));
+  }
+
+  // ---------- channels lines ----------
+  function renderChannels(M) {
+    const el = $('pm-channels'), lg = $('pm-legend-channels');
+    const series = [{ key: 'public_channels', label: 'ช่องสาธารณะ', color: dash.colors[0] }, { key: 'private_channels', label: 'ช่องส่วนตัว', color: dash.colors[1] }];
+    legend(lg, series);
+    if (!stateOf(el, M.status)) return;
+    clear(el);
+    const rows = M.data.filter(r => r.era === 'roster').map(r => ({ month: r.month, public_channels: Number(r.public_channels) || 0, private_channels: Number(r.private_channels) || 0 })).sort((a, b) => a.month < b.month ? -1 : 1);
+    if (!rows.length) return;
+    const W = Math.max(280, el.clientWidth || 600), H = 220, m = { t: 12, r: 0, b: 28, l: 0 };
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('role', 'img').attr('aria-label', 'จำนวนช่องที่จ้างรายเดือน');
+    const yMax = d3.max(rows, d => Math.max(d.public_channels, d.private_channels)) || 1;
+    const y = d3.scaleLinear([0, yMax], [H - m.b, m.t]).nice();
+    const ticks = y.ticks(4);
+    m.l = Math.ceil(d3.max(ticks, t => textWidth(svg, fmtInt(t), 11)) || 0) + 8;
+    const lastRow = rows[rows.length - 1];
+    m.r = Math.ceil(d3.max(series, s => textWidth(svg, s.label + ' ' + lastRow[s.key], 11)) || 0) + 10;
+    const x = d3.scalePoint(rows.map(d => d.month), [m.l, W - m.r]);
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('x', m.l - 6).attr('y', y).attr('dy', '0.32em').attr('text-anchor', 'end').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text(fmtInt);
+    const line = s => d3.line().x(d => x(d.month)).y(d => y(d[s.key]));
+    series.forEach(s => {
+      svg.append('path').datum(rows).attr('d', line(s)).attr('fill', 'none').attr('stroke', s.color).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+      svg.append('circle').attr('cx', x(lastRow.month)).attr('cy', y(lastRow[s.key])).attr('r', 3.5).attr('fill', s.color);
+    });
+    // end labels, pushed apart if they would meet
+    const labs = series.map(s => ({ s, y: y(lastRow[s.key]) })).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < labs.length; i++) if (labs[i].y - labs[i - 1].y < 14) labs[i].y = labs[i - 1].y + 14;
+    labs.forEach(l => svg.append('text').attr('x', x(lastRow.month) + 7).attr('y', l.y).attr('dy', '0.32em').attr('font-size', 11).attr('fill', 'var(--color-fg)').text(l.s.label + ' ' + fmtInt(lastRow[l.s.key])));
+    const step = rows.length > 14 ? 3 : (rows.length > 7 ? 2 : 1);
+    svg.append('g').selectAll('text').data(rows.filter((d, i) => i % step === 0)).join('text').attr('x', d => x(d.month)).attr('y', H - m.b + 16).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text(d => mShort(d.month));
+    const t = tipOf(el);
+    const rule = svg.append('line').attr('y1', m.t).attr('y2', H - m.b).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '3 3').style('display', 'none');
+    const dots = svg.append('g').style('display', 'none');
+    series.forEach(s => dots.append('circle').attr('r', 4).attr('fill', s.color));
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', Math.max(0, W - m.r - m.l)).attr('height', H - m.b - m.t).attr('fill', 'transparent')
+      .on('mousemove', (ev) => {
+        const [px, py] = d3.pointer(ev);
+        const i = d3.minIndex(rows, d => Math.abs(x(d.month) - px)); const d = rows[i];
+        rule.style('display', null).attr('x1', x(d.month)).attr('x2', x(d.month));
+        dots.style('display', null).selectAll('circle').attr('cx', x(d.month)).attr('cy', (_, j) => y(d[series[j].key]));
+        showTip(t, el, px, py, [{ text: mLong(d.month) }].concat(series.map(s => ({ text: s.label + ' ' + fmtInt(d[s.key]), color: s.color }))));
+      })
+      .on('mouseleave', () => { rule.style('display', 'none'); dots.style('display', 'none'); t.hidden = true; });
+  }
+
+  // ---------- registrations stacked bars ----------
+  function renderRegs(G) {
+    const el = $('pm-regs'), lg = $('pm-legend-regs');
+    const keys = [{ key: 'telegram_channel', label: 'ช่อง Telegram', color: dash.colors[0] }, { key: 'friend', label: 'เพื่อนแนะนำ', color: dash.colors[1] }, { key: 'other', label: 'อื่น ๆ', color: dash.colors[2] }];
+    legend(lg, keys);
+    if (!stateOf(el, G.status)) return;
+    clear(el);
+    const rows = G.data.map(r => ({ month: r.month, total: Number(r.total) || 0, telegram_channel: Number(r.telegram_channel) || 0, friend: Number(r.friend) || 0, other: Number(r.other) || 0 })).sort((a, b) => a.month < b.month ? -1 : 1);
+    if (!rows.length) return;
+    const W = Math.max(280, el.clientWidth || 600), H = 220, m = { t: 20, r: 12, b: 28, l: 0 };
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', '0 0 ' + W + ' ' + H).attr('role', 'img').attr('aria-label', 'ผู้สมัครรายเดือนตามแหล่งที่มา');
+    const y = d3.scaleLinear([0, d3.max(rows, d => d.total) || 1], [H - m.b, m.t]).nice();
+    const ticks = y.ticks(4);
+    m.l = Math.ceil(d3.max(ticks, t => textWidth(svg, fmtInt(t), 11)) || 0) + 8;
+    const x = d3.scaleBand(rows.map(d => d.month), [m.l, W - m.r]).paddingInner(0.35).paddingOuter(0.2);
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('x', m.l - 6).attr('y', y).attr('dy', '0.32em').attr('text-anchor', 'end').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text(fmtInt);
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+    const stack = d3.stack().keys(keys.map(k => k.key))(rows);
+    const bw = Math.min(32, x.bandwidth());
+    const t = tipOf(el);
+    keys.forEach((k, i) => {
+      svg.append('g').selectAll('rect').data(stack[i]).join('rect')
+        .attr('x', d => x(d.data.month) + (x.bandwidth() - bw) / 2).attr('y', d => y(d[1])).attr('width', bw).attr('height', d => Math.max(0, y(d[0]) - y(d[1])))
+        .attr('fill', k.color).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2).attr('rx', 2)
+        .on('mouseenter', function (ev, d) {
+          const r = el.getBoundingClientRect();
+          showTip(t, el, ev.clientX - r.left, ev.clientY - r.top, [{ text: mLong(d.data.month) + ' · รวม ' + fmtInt(d.data.total) }].concat(keys.map(kk => ({ text: kk.label + ' ' + fmtInt(d.data[kk.key]), color: kk.color }))));
+        })
+        .on('mouseleave', () => { t.hidden = true; });
+    });
+    svg.append('g').selectAll('text').data(rows).join('text').attr('x', d => x(d.month) + x.bandwidth() / 2).attr('y', d => y(d.total) - 6).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', 'var(--color-fg)').text(d => fmtInt(d.total));
+    svg.append('g').selectAll('text').data(rows).join('text').attr('x', d => x(d.month) + x.bandwidth() / 2).attr('y', H - m.b + 16).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text(d => mShort(d.month));
+  }
+
+  // ---------- tables ----------
+  const sortState = {};
+  function renderTable(id, D, cols, keyField, opts) {
+    opts = opts || {};
+    const table = $(id), tbody = table.querySelector('tbody');
+    if (D.status !== 'ok') {
+      clear(tbody);
+      const tr = document.createElement('tr'), td = document.createElement('td'); td.colSpan = cols.length;
+      if (bad(D.status)) { td.className = 'pm-fail'; td.textContent = 'Failed to load'; } else { td.className = 'dash-skeleton'; td.textContent = ' '; }
+      tr.appendChild(td); tbody.appendChild(tr);
+      return;
+    }
+    let rows = D.data.slice();
+    if (opts.filter) rows = rows.filter(opts.filter);
+    if (opts.sort) rows.sort(opts.sort);
+    const st = sortState[id];
+    if (st) {
+      const c = cols.find(c => c.field === st.field);
+      rows.sort((a, b) => {
+        let va = a[st.field], vb = b[st.field];
+        if (c && c.num) { va = N(va); vb = N(vb); va = va == null ? -Infinity : va; vb = vb == null ? -Infinity : vb; return st.dir === 'asc' ? va - vb : vb - va; }
+        va = String(va == null ? '' : va); vb = String(vb == null ? '' : vb);
+        return st.dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      });
+    }
+    table.querySelectorAll('th').forEach(th => {
+      const f = th.getAttribute('data-field');
+      if (st && st.field === f) th.setAttribute('aria-sort', st.dir === 'asc' ? 'ascending' : 'descending'); else th.removeAttribute('aria-sort');
+    });
+    const maxAmt = d3.max(rows, r => N(r[opts.barField || 'amount_mmk'])) || 1;
+    clear(tbody);
+    rows.forEach(r => {
+      const tr = document.createElement('tr'); tr.setAttribute('data-key', String(r[keyField]));
+      cols.forEach(c => {
+        const td = document.createElement('td'); if (c.num) td.className = 'num'; if (c.cls) td.className += ' ' + c.cls;
+        const v = r[c.field];
+        if (c.render) c.render(td, v, r, maxAmt); else td.textContent = c.fmt ? c.fmt(v, r) : (v == null ? '' : String(v));
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+  function amountCell(td, v, r, max) {
+    const n = N(v) || 0; td.textContent = n ? fmtInt(n) : '—';
+    const b = document.createElement('span'); b.className = 'pm-bar'; b.style.width = Math.max(2, Math.round(60 * n / max)) + 'px'; b.style.background = dash.colors[0]; td.appendChild(b);
+  }
+  function exclCell(td, v) { const s = document.createElement('span'); s.className = 'pm-pill'; s.textContent = EXCL_TH[v] || v || ''; td.appendChild(s); }
+  function nameCell(td, v, r) {
+    td.textContent = v || '';
+    if (isTrue(r.renamed)) { const s = document.createElement('span'); s.className = 'pm-pill'; s.style.marginLeft = '.4rem'; s.textContent = 'เปลี่ยนชื่อ/ลิงก์'; td.appendChild(s); }
+    if (isTrue(r.zero_reg)) { const s = document.createElement('span'); s.className = 'pm-pill pm-bad'; s.style.marginLeft = '.4rem'; s.textContent = 'ไม่มีผู้สมัคร'; td.appendChild(s); }
+  }
+  const regDetail = v => (v || '').replace(/(\w+):(\d+)/g, (s, mo, n) => mo + ' ' + n).replace(/ /g, '  ');
+
+  function renderExcl(E) {
+    renderTable('pm-excl', E, [
+      { field: 'label', fmt: v => EXCL_TH[v] || v },
+      { field: 'contracts', num: true, fmt: v => fmtInt(N(v)) },
+      { field: 'spend', num: true, render: amountCell },
+      { field: 'share', num: true, cls: 'pm-hide-sm', fmt: v => d3.format('.1%')(N(v) || 0) },
+    ], 'label', { sort: (a, b) => EXCL_ORDER.indexOf(a.label) - EXCL_ORDER.indexOf(b.label), barField: 'spend' });
+  }
+  function renderPin(P) {
+    renderTable('pm-pin', P, [
+      { field: 'pin_rule', fmt: pinTH },
+      { field: 'contracts', num: true, fmt: v => fmtInt(N(v)) },
+      { field: 'spend', num: true, fmt: v => fmtInt(N(v) || 0) },
+    ], 'pin_rule');
+  }
+  function renderZero(Z) {
+    renderTable('pm-zero', Z, [
+      { field: 'name', cls: 'pm-name' },
+      { field: 'amount_mmk', num: true, render: amountCell },
+      { field: 'reg_detail', fmt: regDetail },
+      { field: 'streak_months', num: true, cls: 'pm-hide-sm', fmt: v => v == null || v === '' ? '' : fmtInt(N(v)) },
+      { field: 'exclusivity_label', cls: 'pm-hide-sm', render: exclCell },
+      { field: 'admins', cls: 'pm-hide-sm' },
+    ], 'contract_id');
+  }
+  let search = '';
+  function renderRoster(R) {
+    const q = search.trim().toLowerCase();
+    renderTable('pm-roster', R, [
+      { field: 'name', cls: 'pm-name', render: nameCell },
+      { field: 'exclusivity_label', render: exclCell },
+      { field: 'pin_rule', cls: 'pm-hide-sm', fmt: pinTH },
+      { field: 'amount_mmk', num: true, render: amountCell },
+      { field: 'streak_months', num: true, cls: 'pm-hide-sm', fmt: v => v == null || v === '' ? '' : fmtInt(N(v)) },
+      { field: 'reg_detail', fmt: regDetail },
+      { field: 'reg_sum', num: true, fmt: v => fmtInt(N(v) || 0) },
+      { field: 'cost_per_reg_mmk', num: true, fmt: v => N(v) ? fmtInt(N(v)) : '—' },
+      { field: 'public_links', num: true, cls: 'pm-hide-sm', fmt: v => fmtInt(N(v) || 0) },
+      { field: 'private_links', num: true, cls: 'pm-hide-sm', fmt: v => fmtInt(N(v) || 0) },
+      { field: 'admins', cls: 'pm-hide-sm' },
+    ], 'contract_id', {
+      filter: r => !q || [r.name, r.admins, r.exclusivity_label, EXCL_TH[r.exclusivity_label], pinTH(r.pin_rule), r.section].join(' ').toLowerCase().includes(q),
+      sort: (a, b) => (N(b.amount_mmk) || 0) - (N(a.amount_mmk) || 0),
+    });
+  }
+  $('pm-roster').querySelectorAll('th button').forEach(btn => btn.addEventListener('click', () => {
+    const f = btn.parentElement.getAttribute('data-field'); const st = sortState['pm-roster'];
+    sortState['pm-roster'] = st && st.field === f ? { field: f, dir: st.dir === 'asc' ? 'desc' : 'asc' } : { field: f, dir: ['amount_mmk', 'reg_sum', 'cost_per_reg_mmk', 'streak_months'].includes(f) ? 'desc' : 'asc' };
+    renderRoster(dash.data('roster'));
+  }));
+  $('pm-search').addEventListener('input', ev => { search = ev.target.value || ''; renderRoster(dash.data('roster')); });
+
+  // ---------- draw everything on every data or width change ----------
+  dash.onData(() => {
+    const R = dash.data('roster'), M = dash.data('monthly'), G = dash.data('regs');
+    const K = dash.data('kpi'), E = dash.data('by_exclusivity'), P = dash.data('by_pin'), Z = dash.data('zero_reg_list');
+    renderKpi(K);
+    renderSpend(M, K);
+    renderChannels(M);
+    renderRegs(G);
+    renderExcl(E);
+    renderPin(P);
+    renderZero(Z);
+    renderRoster(R);
+  });
+
+  const named = document.getElementById(location.hash.slice(1));
+  if (named && named.closest('#pm-page')) { named.scrollIntoView(); dash.setLink(named.id); }
+})();
+</script>
