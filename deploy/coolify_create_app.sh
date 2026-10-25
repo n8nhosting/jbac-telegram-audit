@@ -79,5 +79,5 @@ echo
 echo "   (if the storage call above was rejected, add a Volume Mount in the Coolify UI: name audit-data, destination /data)"
 
 echo "== deploy"
-curl -sS "${auth[@]}" "$API/deploy?uuid=$APP_UUID&force=false" | head -c 400; echo
+curl -sS "${auth[@]}" -X POST "$API/deploy?uuid=$APP_UUID&force=false" | head -c 400; echo
 echo "application uuid: $APP_UUID — watch the build in Coolify, then open the FQDN /healthz"
