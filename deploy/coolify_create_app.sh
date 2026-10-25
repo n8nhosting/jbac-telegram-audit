@@ -74,7 +74,7 @@ curl -sS "${auth[@]}" -X PATCH "$API/applications/$APP_UUID/envs/bulk" -d "$envj
 
 echo "== persistent storage for /data (SQLite)"
 curl -sS "${auth[@]}" -X POST "$API/applications/$APP_UUID/storages" \
-  -d '{"name":"audit-data","mount_path":"/data"}' | head -c 300 || true
+  -d '{"type":"persistent","name":"audit-data","mount_path":"/data"}' | head -c 300 || true
 echo
 echo "   (if the storage call above was rejected, add a Volume Mount in the Coolify UI: name audit-data, destination /data)"
 
