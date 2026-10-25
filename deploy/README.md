@@ -37,6 +37,15 @@ curl -u admin:$DASH_PASSWORD -X POST https://audit.jbacteam.com/admin/run/rollup
 ```
 เปิด `https://audit.jbacteam.com/` → หน้าตาราง exception-first · สลับภาษา ไทย / English / မြန်မာ ได้ที่มุมบน (`?lang=th|en|my` จำค่าใน cookie; ถ้าไม่เลือก ใช้ภาษาจากเบราว์เซอร์ แล้วจึงไทย)
 
+## อัปเดตโค้ดและ deploy ซ้ำ
+repo จริง: `git@github.com:n8nhosting/jbac-telegram-audit.git` (private) · Coolify ดึงด้วย deploy key ชื่อ `coolify-platinum-audit-deploy` (เพิ่มใน GitHub แบบ allow write เพื่อให้เครื่องพัฒนา push ด้วย key เดียวกันได้)
+```bash
+git push origin main                                   # ไม่มี webhook: push แล้วต้องสั่ง deploy เอง
+curl -X POST -H "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_URL/api/v1/deploy?uuid=<application uuid>"
+curl -H "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_URL/api/v1/deployments/<deployment uuid>"   # status: queued → in_progress → finished|failed
+```
+หรือกด Redeploy ใน Coolify UI · Coolify ตรวจสุขภาพด้วย `curl` ภายใน container (image นี้ติดตั้ง curl ไว้แล้ว — ถ้าเปลี่ยน base image ต้องมี curl หรือ wget ไม่งั้น deploy จะถูก rollback ว่า unhealthy) · ข้อมูลอยู่ใน volume `audit-data` → `/data` ไม่หายเมื่อ deploy ใหม่
+
 ## ตัวแปรแวดล้อม
 | ตัวแปร | ค่า/ความหมาย |
 |---|---|
