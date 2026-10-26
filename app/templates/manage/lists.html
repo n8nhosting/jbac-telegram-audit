@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set page_icon = "⛔" %}{% set page_title = t('nav.lists') %}
+{% block title %}{{ t('nav.lists') }} — Platinum audit{% endblock %}
+{% macro err(field) %}{% if errors.get(field) %}<div class="help" style="color:var(--bad)">{{ t(errors[field]) }}</div>{% endif %}{% endmacro %}
+{% block body %}
+<form method="post" action="/manage/lists/add" class="panel">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="phead"><h2>{{ t('mg.add_event') }}</h2></div>
+  <div class="pbody">
+    <div class="form">
+      <div class="f wide"><label for="contract_id">{{ t('mg.contract') }}</label><select id="contract_id" name="contract_id" required><option value="">—</option>{% for c in contracts %}<option value="{{ c.id }}" {% if values.contract_id|string == c.id|string %}selected{% endif %}>{{ c.label }}</option>{% endfor %}</select>{{ err('contract_id') }}</div>
+      <div class="f"><label for="event">{{ t('mg.event') }}</label><select id="event" name="event">{% for k in kinds %}<option value="{{ k }}" {% if values.event == k %}selected{% endif %}>{{ t('ev.' ~ k) }}</option>{% endfor %}</select>{{ err('event') }}</div>
+      <div class="f"><label for="happened_at">{{ t('mg.when') }}</label><input id="happened_at" type="date" name="happened_at" value="{{ values.happened_at }}">{{ err('happened_at') }}</div>
+      <div class="f"><label for="amount_mmk">{{ t('mg.amount') }}</label><input id="amount_mmk" class="mono" type="text" inputmode="numeric" name="amount_mmk" value="{{ values.amount_mmk }}">{{ err('amount_mmk') }}</div>
+      <div class="f wide"><label for="note">{{ t('c.note') }}</label><input id="note" name="note" value="{{ values.note }}"></div>
+    </div>
+    <div class="actions"><button class="btn btn-pri" type="submit">+ {{ t('mg.add_event') }}</button><span class="hint">{{ t('mg.lists_help') }}</span></div>
+  </div>
+</form>
+
+<div class="toolbar">
+  <div class="daynav">
+    <a class="chip{% if not kind %} on{% endif %}" href="/manage/lists">{{ t('nav.all_status') }}</a>
+    {% for k in kinds %}<a class="chip{% if kind == k %} on{% endif %}" href="/manage/lists?kind={{ k }}">{{ t('ev.' ~ k) }}</a>{% endfor %}
+  </div>
+</div>
+
+<div class="panel">
+  <div class="phead"><h2>{{ t('nav.lists') }}</h2><span class="spacer"></span><span class="muted small">{{ t('mg.count', n=rows|length) }}</span></div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>{{ t('mg.when') }}</th><th>{{ t('mg.event') }}</th><th>{{ t('mg.contract') }}</th><th class="num">{{ t('mg.amount') }}</th><th>{{ t('c.note') }}</th><th>{{ t('mg.status') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for e in rows %}
+    <tr>
+      <td class="mono small">{{ e.happened_at[:10] }}</td>
+      <td><span class="tag {{ 'bad' if e.event in ('stop','refund') else 'warn' }}">{{ t('ev.' ~ e.event) }}</span></td>
+      <td>{% if e.contract_id %}<a class="nm" href="/contracts/{{ e.contract_id }}">{{ e.names_list|join(" / ") or e.sheet_contract_id }}</a><div class="sub mono">{{ e.sheet_contract_id }}{% if e.channel_key %} · {{ e.channel_key }}{% endif %}</div>{% else %}<span class="mono">{{ e.channel_key or "—" }}</span>{% endif %}</td>
+      <td class="num">{{ "{:,}".format(e.amount_mmk) if e.amount_mmk else "—" }}</td>
+      <td>{{ e.note or "" }}</td>
+      <td>{% if e.contract_status %}<span class="tag {{ 'ok' if e.contract_status == 'active' else ('warn' if e.contract_status == 'paused' else 'bad') }}">{{ t('cs.' ~ e.contract_status) }}</span>{% endif %}</td>
+      <td><form method="post" action="/manage/lists/{{ e.id }}/delete" class="inline" onsubmit="return confirm('{{ t('mg.confirm_delete') }}')"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-sm btn-bad" type="submit">{{ t('mg.delete') }}</button></form></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="muted">{{ t('mg.none') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set page_icon = "🧾" %}{% set page_title = t('nav.regs') %}
+{% block title %}{{ t('nav.regs') }} — Platinum audit{% endblock %}
+{% block body %}
+<div class="toolbar">
+  <form method="get" class="daynav">
+    <label class="field"><span class="muted small">{{ t('mg.to_month') }}</span><input type="month" name="to" value="{{ to }}"></label>
+    <label class="field"><span class="muted small">{{ t('mg.months') }}</span><input type="number" name="months" min="1" max="24" value="{{ n }}" style="width:5rem"></label>
+    <button class="btn" type="submit">{{ t('mg.show') }}</button>
+  </form>
+  <span class="hint">{{ t('mg.regs_help') }}</span>
+</div>
+{% if errors %}<div class="flash bad">{{ t('err.number') }}: {{ errors|join(" · ") }}</div>{% endif %}
+
+<form method="post" action="/manage/regs" class="panel">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="to" value="{{ to }}"><input type="hidden" name="months" value="{{ n }}">
+  <div class="phead"><h2>{{ t('nav.regs') }}</h2><span class="spacer"></span><button class="btn btn-pri" type="submit">{{ t('mg.save') }}</button></div>
+  <div class="scroll">
+  <table class="reggrid">
+    <thead><tr><th>{{ t('nav.contracts') }}</th>{% for mth in months %}<th class="num">{{ mth }}</th>{% endfor %}<th class="num">{{ t('mg.total') }}</th><th class="num">{{ t('th.fee') }}</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><a class="nm" href="/contracts/{{ r.id }}">{{ r.names_list|join(" / ") or r.sheet_contract_id }}</a><div class="sub mono">{{ r.sheet_contract_id }} · {{ t('cs.' ~ r.status) }}</div></td>
+      {% for cell in r.cells %}<td class="num"><input class="mono" type="text" inputmode="numeric" name="reg-{{ r.id }}-{{ cell.month }}" value="{{ cell.value if cell.value is not none else '' }}" style="width:4.5rem;text-align:right" aria-label="{{ r.sheet_contract_id }} {{ cell.month }}"></td>{% endfor %}
+      <td class="num"><b>{{ r.total }}</b></td>
+      <td class="num">{{ "{:,}".format(r.amount_mmk) if r.amount_mmk else "—" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="{{ months|length + 3 }}" class="muted">{{ t('mg.none') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="pbody actions"><button class="btn btn-pri" type="submit">{{ t('mg.save') }}</button><span class="hint">{{ t('mg.regs_help') }}</span></div>
+</form>
+{% endblock %}

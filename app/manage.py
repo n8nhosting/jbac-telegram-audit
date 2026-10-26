@@ -25,6 +25,7 @@ CONTRACT_STATUSES = ["active", "paused", "stopped", "refund"]
 PIN_KINDS = ["none", "daily", "per_month", "every_days"]
 QUOTA_TYPES = ["daily_post", "custom"]
 CHANNEL_KINDS = ["public_preview", "public_no_preview", "private", "group", "not_channel", "unknown"]
+LIST_EVENTS = ["stop", "refund", "follow_up", "substitute"]          # the Stop list / Refund ch / Follow Up ch / Substitute ch sheets
 _MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
 
@@ -424,6 +425,144 @@ def register(app, *, auth, page_context, lang_of, remember, settings, db, templa
         conn.commit()
         log_admin(conn, settings.dash_user, "channel.revive", ch["channel_key"])
         return _redirect(f"/manage/channels/{channel_id}/edit", _t(lang_of(request), "mg.revived"))
+
+    # ---- monthly reg grid ------------------------------------------------
+    def _months_ending(to: str, n: int) -> list[str]:
+        y, m = int(to[:4]), int(to[5:7])
+        out = []
+        for _ in range(n):
+            out.append(f"{y:04d}-{m:02d}")
+            m -= 1
+            if m == 0:
+                y, m = y - 1, 12
+        return list(reversed(out))
+
+    def _reg_grid(conn, months: list[str]) -> list[dict]:
+        regs = {}
+        for r in conn.execute("SELECT contract_id, month, reg FROM reg_monthly WHERE month BETWEEN ? AND ?", (months[0], months[-1])):
+            regs[(r["contract_id"], r["month"])] = r["reg"]
+        rows = []
+        for c in conn.execute("SELECT id, sheet_contract_id, names, status, amount_mmk FROM contracts ORDER BY "
+                              "CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END, month DESC, sheet_contract_id"):
+            rows.append({"id": c["id"], "sheet_contract_id": c["sheet_contract_id"], "names_list": json.loads(c["names"] or "[]"),
+                         "status": c["status"], "amount_mmk": c["amount_mmk"],
+                         "cells": [{"month": mth, "value": regs.get((c["id"], mth))} for mth in months],
+                         "total": sum(v for (cid, _), v in regs.items() if cid == c["id"])})
+        return rows
+
+    def _reg_params(to: str, months: str) -> tuple[str, int]:
+        to = to if _MONTH.match(to or "") else dt.date.today().strftime("%Y-%m")
+        n = int(months) if (months or "").isdigit() and 1 <= int(months) <= 24 else 6
+        return to, n
+
+    @app.get("/manage/regs", response_class=HTMLResponse)
+    async def regs_page(request: Request, to: str = "", months: str = "", _=Depends(auth)):
+        to, n = _reg_params(to, months)
+        cols = _months_ending(to, n)
+        return render(request, "manage/regs.html", "regs", months=cols, rows=_reg_grid(db(), cols), to=to, n=n, errors=[])
+
+    @app.post("/manage/regs")
+    async def regs_save(request: Request, _=Depends(auth)):
+        form = await request.form()
+        require_form_post(request, form.get("csrf"))
+        to, n = _reg_params(form.get("to") or "", form.get("months") or "")
+        cols = _months_ending(to, n)
+        conn = db()
+        upserts, deletes, errors = [], [], []
+        for key, raw in form.multi_items():
+            m = re.fullmatch(r"reg-(\d+)-(\d{4}-\d{2})", key)
+            if not m:
+                continue
+            cid, month, val = int(m.group(1)), m.group(2), (raw or "").strip()
+            if not val:
+                continue
+            if val == "-":
+                deletes.append((cid, month))
+                continue
+            try:
+                upserts.append((cid, month, int(re.sub(r"[,\s]", "", val))))
+            except ValueError:
+                errors.append(f"{month}: {val}")
+        if errors:
+            return render(request, "manage/regs.html", "regs", months=cols, rows=_reg_grid(conn, cols), to=to, n=n, errors=errors)
+        with conn:
+            for cid, month, reg in upserts:
+                conn.execute("INSERT INTO reg_monthly(contract_id, month, reg) VALUES(?,?,?) ON CONFLICT(contract_id, month) DO UPDATE SET reg=excluded.reg",
+                             (cid, month, reg))
+            for cid, month in deletes:
+                conn.execute("DELETE FROM reg_monthly WHERE contract_id=? AND month=?", (cid, month))
+        log_admin(conn, settings.dash_user, "reg.save", to, {"upserts": len(upserts), "deletes": len(deletes)})
+        return _redirect(f"/manage/regs?to={to}&months={n}", _t(lang_of(request), "mg.regs_saved", n=len(upserts) + len(deletes)))
+
+    # ---- stop / refund / follow-up / substitute lists ---------------------
+    def _list_rows(conn, kind: str = "") -> list[dict]:
+        where = "WHERE e.event IN ('stop','refund','follow_up','substitute')" + (" AND e.event=?" if kind else "")
+        rows = conn.execute(f"""SELECT e.*, c.sheet_contract_id, c.names, c.status AS contract_status, ch.channel_key
+                                FROM channel_events e LEFT JOIN contracts c ON c.id=e.contract_id LEFT JOIN channels ch ON ch.id=e.channel_id
+                                {where} ORDER BY e.happened_at DESC, e.id DESC LIMIT 500""", (kind,) if kind else ())
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["names_list"] = json.loads(d["names"] or "[]")
+            out.append(d)
+        return out
+
+    def _list_form_defaults() -> dict:
+        return {"contract_id": "", "event": "stop", "happened_at": dt.date.today().isoformat(), "amount_mmk": "", "note": ""}
+
+    @app.get("/manage/lists", response_class=HTMLResponse)
+    async def lists_page(request: Request, kind: str = "", _=Depends(auth)):
+        kind = kind if kind in LIST_EVENTS else ""
+        return render(request, "manage/lists.html", "lists", rows=_list_rows(db(), kind), kind=kind, kinds=LIST_EVENTS,
+                      contracts=_contract_options(db()), values=_list_form_defaults(), errors={})
+
+    @app.post("/manage/lists/add")
+    async def lists_add(request: Request, _=Depends(auth)):
+        form = await request.form()
+        require_form_post(request, form.get("csrf"))
+        values = {k: (form.get(k) or "").strip() for k in ("contract_id", "event", "happened_at", "amount_mmk", "note")}
+        conn = db()
+        errors = {}
+        if values["event"] not in LIST_EVENTS:
+            errors["event"] = "err.required"
+        cid = int(values["contract_id"]) if values["contract_id"].isdigit() else None
+        c = one(conn, "SELECT id, sheet_contract_id FROM contracts WHERE id=?", (cid,)) if cid else None
+        if not c:
+            errors["contract_id"] = "err.required"
+        try:
+            when = _date_or_none(values["happened_at"]) or dt.date.today().isoformat()
+        except ValueError:
+            errors["happened_at"] = "err.date"
+        try:
+            amount = _int_or_none(values["amount_mmk"])
+        except ValueError:
+            errors["amount_mmk"] = "err.number"
+        if errors:
+            return render(request, "manage/lists.html", "lists", rows=_list_rows(conn), kind="", kinds=LIST_EVENTS,
+                          contracts=_contract_options(conn), values=values, errors=errors)
+        with conn:
+            conn.execute("INSERT INTO channel_events(channel_id, contract_id, event, happened_at, amount_mmk, note) VALUES(NULL,?,?,?,?,?)",
+                         (c["id"], values["event"], f"{when}T00:00:00+00:00", amount, values["note"] or None))
+            new_status = {"stop": "stopped", "refund": "refund"}.get(values["event"])
+            if new_status:
+                conn.execute("UPDATE contracts SET status=?, manual_locked=1, updated_at=? WHERE id=?", (new_status, now_utc(), c["id"]))
+            else:
+                conn.execute("UPDATE contracts SET manual_locked=1, updated_at=? WHERE id=?", (now_utc(), c["id"]))
+        log_admin(conn, settings.dash_user, "list.add", c["sheet_contract_id"], {"event": values["event"], "amount": amount, "note": values["note"]})
+        return _redirect(f"/manage/lists?kind={values['event']}", _t(lang_of(request), "mg.saved"))
+
+    @app.post("/manage/lists/{event_id}/delete")
+    async def lists_delete(request: Request, event_id: int, _=Depends(auth)):
+        form = await request.form()
+        require_form_post(request, form.get("csrf"))
+        conn = db()
+        ev = one(conn, "SELECT e.*, c.sheet_contract_id FROM channel_events e LEFT JOIN contracts c ON c.id=e.contract_id WHERE e.id=?", (event_id,))
+        if not ev:
+            raise HTTPException(status_code=404, detail="event not found")
+        conn.execute("DELETE FROM channel_events WHERE id=?", (event_id,))
+        conn.commit()
+        log_admin(conn, settings.dash_user, "list.delete", ev["sheet_contract_id"], {"event": ev["event"], "happened_at": ev["happened_at"]})
+        return _redirect("/manage/lists", _t(lang_of(request), "mg.list_deleted"))
 
     @app.post("/manage/contracts/{contract_id}/channels/{channel_id}/detach")
     async def contract_detach_channel(request: Request, contract_id: int, channel_id: int, _=Depends(auth)):

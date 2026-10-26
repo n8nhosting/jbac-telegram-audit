@@ -188,5 +188,76 @@ class TestChannels(ManageCase):
         self.assertEqual(self.client.get("/manage/channels/9999/edit").status_code, 404)
 
 
+class TestRegs(ManageCase):
+    def test_grid_shows_months_and_seed_values(self):
+        cid = self.cid()
+        r = self.client.get("/manage/regs?to=2026-10&months=3&lang=en")
+        self.assertEqual(r.status_code, 200)
+        for month in ("2026-08", "2026-09", "2026-10"):
+            self.assertIn(f'name="reg-{cid}-{month}"', r.text)
+        self.assertNotIn(f'name="reg-{cid}-2026-07"', r.text)
+        self.assertRegex(r.text, rf'name="reg-{cid}-2026-09"[^>]*value="2"')      # Sep reg 2 from the sheet
+
+    def test_save_touches_only_filled_cells(self):
+        cid = self.cid()
+        r = self.post("/manage/regs", to="2026-10", months="3", **{f"reg-{cid}-2026-10": "7", f"reg-{cid}-2026-09": "", f"reg-{cid}-2026-08": "-"})
+        self.assertEqual(r.status_code, 303, r.text)
+        regs = {r["month"]: r["reg"] for r in all_rows(self.conn, "SELECT month, reg FROM reg_monthly WHERE contract_id=?", (cid,))}
+        self.assertEqual(regs.get("2026-10"), 7)
+        self.assertEqual(regs.get("2026-09"), 2)                      # blank = untouched
+        self.assertNotIn("2026-08", regs)                              # "-" = removed
+        other = self.cid("2026-10-r006")
+        self.assertIsNone(one(self.conn, "SELECT 1 FROM reg_monthly WHERE contract_id=? AND month='2026-10'", (other,)))
+        self.assertEqual(one(self.conn, "SELECT action FROM admin_log ORDER BY id DESC LIMIT 1")["action"], "reg.save")
+
+    def test_save_rejects_non_numbers(self):
+        cid = self.cid()
+        r = self.post("/manage/regs", to="2026-10", months="3", **{f"reg-{cid}-2026-10": "abc"})
+        self.assertEqual(r.status_code, 200)
+        self.assertIsNone(one(self.conn, "SELECT 1 FROM reg_monthly WHERE contract_id=? AND month='2026-10'", (cid,)))
+
+
+class TestLists(ManageCase):
+    def test_add_stop_event_updates_contract_status(self):
+        cid = self.cid()
+        r = self.post("/manage/lists/add", contract_id=str(cid), event="stop", happened_at="2026-10-20", amount_mmk="", note="no reg 3 months")
+        self.assertEqual(r.status_code, 303, r.text)
+        ev = one(self.conn, "SELECT * FROM channel_events WHERE contract_id=? ORDER BY id DESC LIMIT 1", (cid,))
+        self.assertEqual((ev["event"], ev["happened_at"][:10], ev["note"]), ("stop", "2026-10-20", "no reg 3 months"))
+        c = one(self.conn, "SELECT status, manual_locked FROM contracts WHERE id=?", (cid,))
+        self.assertEqual((c["status"], c["manual_locked"]), ("stopped", 1))
+        self.assertEqual(one(self.conn, "SELECT action FROM admin_log ORDER BY id DESC LIMIT 1")["action"], "list.add")
+
+    def test_refund_stores_amount_and_follow_up_keeps_status(self):
+        cid = self.cid()
+        self.post("/manage/lists/add", contract_id=str(cid), event="refund", happened_at="2026-10-21", amount_mmk="150,000", note="")
+        ev = one(self.conn, "SELECT amount_mmk FROM channel_events WHERE contract_id=? AND event='refund'", (cid,))
+        self.assertEqual(ev["amount_mmk"], 150000)
+        self.assertEqual(one(self.conn, "SELECT status FROM contracts WHERE id=?", (cid,))["status"], "refund")
+        other = self.cid("2026-10-r006")
+        self.post("/manage/lists/add", contract_id=str(other), event="follow_up", happened_at="2026-10-21", amount_mmk="", note="ask admin")
+        self.assertEqual(one(self.conn, "SELECT status FROM contracts WHERE id=?", (other,))["status"], "active")
+
+    def test_invalid_event_or_contract_rejected(self):
+        cid = self.cid()
+        r = self.post("/manage/lists/add", contract_id=str(cid), event="bogus", happened_at="2026-10-20", amount_mmk="", note="")
+        self.assertEqual(r.status_code, 200)
+        r = self.post("/manage/lists/add", contract_id="9999", event="stop", happened_at="2026-10-20", amount_mmk="", note="")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(one(self.conn, "SELECT COUNT(*) AS n FROM channel_events")["n"], 0)
+
+    def test_list_filters_and_delete(self):
+        cid = self.cid()
+        self.post("/manage/lists/add", contract_id=str(cid), event="stop", happened_at="2026-10-20", amount_mmk="", note="STOPNOTE")
+        self.post("/manage/lists/add", contract_id=str(cid), event="follow_up", happened_at="2026-10-21", amount_mmk="", note="FOLLOWNOTE")
+        r = self.client.get("/manage/lists?kind=stop&lang=en")
+        self.assertIn("STOPNOTE", r.text)
+        self.assertNotIn("FOLLOWNOTE", r.text)
+        ev_id = one(self.conn, "SELECT id FROM channel_events WHERE note='FOLLOWNOTE'")["id"]
+        r = self.post(f"/manage/lists/{ev_id}/delete")
+        self.assertEqual(r.status_code, 303)
+        self.assertIsNone(one(self.conn, "SELECT 1 FROM channel_events WHERE id=?", (ev_id,)))
+
+
 if __name__ == "__main__":
     unittest.main()
