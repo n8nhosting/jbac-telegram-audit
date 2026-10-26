@@ -28,7 +28,7 @@ from .forms import csrf_token, ensure_csrf_cookie, pop_flash
 from .importer import import_seed
 from . import manage as _manage
 from .rollup import rollup_date
-from .rules import now_local
+from .rules import now_local, local_ts
 
 TEMPLATES = Jinja2Templates(directory=str(pathlib.Path(__file__).parent / "templates"))
 FAVICON_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#172029"/>'
@@ -263,6 +263,7 @@ def create_app(settings, conn: sqlite3.Connection | None = None, start_scheduler
                 fresh = False
         return {"lang": lang, "lang_names": LANG_NAMES, "langs": LANGS, "switch": switch_urls(request),
                 "t": lambda key, **kw: _t(lang, key, **kw), "sl": lambda s: status_label(lang, s),
+                "lt": lambda v, fmt="%Y-%m-%d %H:%M": local_ts(v, settings.tz, fmt),
                 "status_keys": STATUS_KEYS, "tz": settings.tz, "nav": nav, "who": settings.dash_user,
                 "hashtag": settings.hashtag, "collector_fresh": fresh, "flash": pop_flash(request),
                 "csrf": csrf_token(request)}

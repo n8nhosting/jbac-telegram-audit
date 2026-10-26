@@ -16,6 +16,28 @@ def now_local(tz: str) -> dt.datetime:
     return dt.datetime.now(ZoneInfo(tz))
 
 
+def local_ts(value, tz: str, fmt: str = "%Y-%m-%d %H:%M") -> str:
+    """Stored UTC timestamp (ISO string or datetime) -> wall-clock text in the audit timezone.
+
+    A date-only string is a calendar day and comes back unchanged; empty -> "—"; unparseable -> as given.
+    """
+    if value is None or value == "":
+        return "—"
+    if isinstance(value, dt.datetime):
+        d = value
+    else:
+        s = str(value)
+        if len(s) == 10:
+            return s
+        try:
+            d = dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+        except ValueError:
+            return s
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=dt.timezone.utc)
+    return d.astimezone(ZoneInfo(tz)).strftime(fmt)
+
+
 def local_date_of(iso_utc: str, tz: str) -> str:
     """ISO timestamp (UTC or with offset) -> calendar day in the audit timezone."""
     d = dt.datetime.fromisoformat(iso_utc.replace("Z", "+00:00"))

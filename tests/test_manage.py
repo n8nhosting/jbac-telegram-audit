@@ -342,6 +342,22 @@ class TestDataAndSettings(ManageCase):
         self.assertIn("Asia/Yangon", r.text)
         self.assertIn("contract.update", r.text)
 
+    def test_times_shown_in_audit_timezone(self):
+        """Runs, change log and next-run times are shown in Asia/Yangon (UTC+6:30), never raw UTC."""
+        self.conn.execute("INSERT INTO runs(kind, started_at, finished_at, ok, detail) VALUES('mtproto', ?, ?, 1, '{}')",
+                          ("2026-10-26T18:20:00+00:00", "2026-10-26T18:28:00+00:00"))
+        self.conn.execute("INSERT INTO admin_log(at, user, action, target, detail) VALUES(?, 'admin', 'x.y', NULL, NULL)",
+                          ("2026-10-26T18:28:00+00:00",))
+        self.conn.execute("UPDATE channels SET last_checked='2026-10-26T18:28:00+00:00'")
+        self.conn.commit()
+        for path in ("/manage/settings?lang=en", "/manage/data?lang=en", "/manage/channels?lang=en"):
+            r = self.client.get(path)
+            self.assertEqual(r.status_code, 200)
+            self.assertIn("2026-10-27 00:58", r.text, path)
+            self.assertNotIn("2026-10-26 18:28", r.text, path)
+            self.assertNotIn("(UTC)", r.text, path)
+        self.assertIn("Asia/Yangon", self.client.get("/manage/data?lang=en").text)
+
 
 if __name__ == "__main__":
     unittest.main()

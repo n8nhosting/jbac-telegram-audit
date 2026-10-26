@@ -47,7 +47,7 @@
       <td>{% if ch.url %}<a href="{{ ch.url }}" target="_blank" rel="noopener">{{ ch.title_observed or ch.title or ch.channel_key }}</a>{% else %}{{ ch.title or ch.channel_key }}{% endif %}<div class="sub mono">{{ ch.channel_key }}</div></td>
       <td>{{ ch.kind }}<div class="sub">{{ ch.collector }}</div>{% if ch.dead_at %}<div>{{ m.pill('dead', t('c.dead_since', d=ch.dead_at[:10])) }}</div>{% endif %}</td>
       <td class="num">{{ "{:,}".format(ch.subscribers) if ch.subscribers else "—" }}</td>
-      <td class="mono small">{{ (ch.last_checked or "—")[:16]|replace("T", " ") }}</td>
+      <td class="mono small">{{ lt(ch.last_checked) }}</td>
       <td><div class="rowacts"><a class="btn btn-sm" href="/manage/channels/{{ ch.id }}/edit">✎ {{ t('mg.edit') }}</a>
         <form method="post" action="/manage/contracts/{{ c.id }}/channels/{{ ch.id }}/detach" class="inline" onsubmit="return confirm('{{ t('mg.confirm_detach') }}')"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-sm btn-bad" type="submit">{{ t('mg.detach') }}</button></form></div></td>
     </tr>

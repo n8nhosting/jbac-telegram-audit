@@ -42,13 +42,13 @@
 </div>
 
 <div class="panel">
-  <div class="phead"><h2>{{ t('dt.runs_title') }}</h2></div>
+  <div class="phead"><h2>{{ t('dt.runs_title') }}</h2><span class="spacer"></span><span class="hint">{{ t('st.tz_hint', tz=tz) }}</span></div>
   <div class="scroll">
   <table>
     <thead><tr><th>{{ t('dt.kind') }}</th><th>{{ t('dt.started') }}</th><th>{{ t('dt.finished') }}</th><th>{{ t('dt.result') }}</th></tr></thead>
     <tbody>
     {% for r in runs %}
-    <tr><td><span class="tag {{ 'ok' if r.ok else 'bad' }}">{{ r.kind }}</span></td><td class="mono small">{{ (r.started_at or "")[:16]|replace("T"," ") }}</td><td class="mono small">{{ (r.finished_at or "—")[:16]|replace("T"," ") }}</td><td class="small mono" style="overflow-wrap:anywhere">{{ (r.detail or "")[:200] }}</td></tr>
+    <tr><td><span class="tag {{ 'ok' if r.ok else 'bad' }}">{{ r.kind }}</span></td><td class="mono small">{{ lt(r.started_at) }}</td><td class="mono small">{{ lt(r.finished_at) }}</td><td class="small mono" style="overflow-wrap:anywhere">{{ (r.detail or "")[:200] }}</td></tr>
     {% else %}
     <tr><td colspan="4" class="muted">{{ t('mg.none') }}</td></tr>
     {% endfor %}

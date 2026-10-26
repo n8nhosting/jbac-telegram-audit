@@ -32,7 +32,7 @@
       <tr><th>{{ t('mg.kind') }}</th><td>{{ t('ck.' ~ ch.kind) }} · {{ t('cl.' ~ ch.collector) }}</td></tr>
       <tr><th>{{ t('c.subscribers') }}</th><td class="mono">{{ "{:,}".format(ch.subscribers) if ch.subscribers else "—" }}</td></tr>
       <tr><th>{{ t('mg.observed_title') }}</th><td>{{ ch.title_observed or "—" }}</td></tr>
-      <tr><th>{{ t('c.last_checked') }}</th><td class="mono">{{ (ch.last_checked or "—")[:16]|replace("T", " ") }}</td></tr>
+      <tr><th>{{ t('c.last_checked') }}</th><td class="mono">{{ lt(ch.last_checked) }}</td></tr>
       <tr><th>{{ t('mg.last_error') }}</th><td>{{ ch.last_error or "—" }}</td></tr>
       <tr><th>{{ t('mg.dead_misses') }}</th><td class="mono">{{ ch.dead_misses }}{% if ch.dead_at %} · {{ ch.dead_at[:10] }}{% endif %}</td></tr>
     </table>

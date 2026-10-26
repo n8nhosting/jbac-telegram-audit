@@ -36,7 +36,7 @@
       <div class="sub">{{ ch.channel_key }}{% if ch.title_observed and ch.title and ch.title_observed != ch.title %} · {{ t('c.sheet') }}: {{ ch.title }}{% endif %}</div></td>
       <td>{{ ch.kind }}<div class="sub">{{ ch.collector }}</div>{% if ch.dead_at %}<div>{{ m.pill('dead', t('c.dead_since', d=ch.dead_at[:10])) }}</div>{% endif %}</td>
       <td class="num">{{ "{:,}".format(ch.subscribers) if ch.subscribers else "—" }}</td>
-      <td>{{ (ch.last_checked or "—")[:16]|replace("T", " ") }}{% if ch.last_error %}<div>{{ m.pill('missed', ch.last_error[:60]) }}</div>{% endif %}</td></tr>
+      <td>{{ lt(ch.last_checked) }}{% if ch.last_error %}<div>{{ m.pill('missed', ch.last_error[:60]) }}</div>{% endif %}</td></tr>
   {% endfor %}
   </tbody></table>
 </section>
@@ -48,7 +48,7 @@
   </div>
   {% if c.regs %}<h2 class="sec">{{ t('c.regs') }}</h2><div class="regs">{% for r in c.regs %}<span>{{ r.month }} <b>{{ r.reg }}</b></span>{% endfor %}</div>{% endif %}
   {% if c.aliases %}<h2 class="sec">{{ t('c.aliases') }}</h2><ul class="list">{% for a in c.aliases %}<li>{{ a.old_title or "" }} {{ a.old_url or a.old_channel_key or "" }} <span class="muted">({{ a.source }}, {{ a.seen_at[:10] }})</span></li>{% endfor %}</ul>{% endif %}
-  {% if c.events %}<h2 class="sec">{{ t('c.events') }}</h2><ul class="list">{% for e in c.events %}<li>{{ e.happened_at[:16]|replace("T", " ") }} <b>{{ e.event }}</b> {{ e.channel_key or "" }} <span class="muted">{{ e.note or "" }}</span></li>{% endfor %}</ul>{% endif %}
+  {% if c.events %}<h2 class="sec">{{ t('c.events') }}</h2><ul class="list">{% for e in c.events %}<li>{{ lt(e.happened_at) }} <b>{{ e.event }}</b> {{ e.channel_key or "" }} <span class="muted">{{ e.note or "" }}</span></li>{% endfor %}</ul>{% endif %}
 </section>
 </div>
 

@@ -14,6 +14,7 @@ from app.db import connect, migrate, one
 from app.i18n import LANGS, STRINGS, t
 from app.importer import import_seed
 from app.rollup import rollup_date
+from app.rules import local_ts
 from app.web import create_app, cutoff_info, notes_digest, group_of
 
 FIX = pathlib.Path(__file__).resolve().parent / "fixtures" / "seed_small.json"
@@ -120,6 +121,27 @@ class TestRenderedPages(unittest.TestCase):
             for lang in LANGS:
                 self.assertTrue(STRINGS[key].get(lang), (key, lang))
         self.assertEqual(t("en", "hero.cutoff_left", h=9, m=27, tz="Asia/Yangon"), "9 h 27 min to cutoff 23:59 Asia/Yangon")
+
+
+class TestLocalTs(unittest.TestCase):
+    """Every timestamp the UI shows is converted from the stored UTC value to the audit timezone."""
+
+    def test_utc_iso_string_to_yangon(self):
+        self.assertEqual(local_ts("2026-10-26T18:28:00+00:00", "Asia/Yangon"), "2026-10-27 00:58")
+
+    def test_naive_string_is_treated_as_utc(self):
+        self.assertEqual(local_ts("2026-10-26T18:28:00", "Asia/Yangon"), "2026-10-27 00:58")
+
+    def test_aware_datetime_and_custom_format(self):
+        d = dt.datetime(2026, 10, 26, 18, 40, tzinfo=dt.timezone.utc)
+        self.assertEqual(local_ts(d, "Asia/Yangon"), "2026-10-27 01:10")
+        self.assertEqual(local_ts(d, "Asia/Yangon", "%H:%M"), "01:10")
+
+    def test_date_only_and_empty_values_pass_through(self):
+        self.assertEqual(local_ts("2026-10-05", "Asia/Yangon"), "2026-10-05")      # a calendar day has no clock to shift
+        self.assertEqual(local_ts(None, "Asia/Yangon"), "—")
+        self.assertEqual(local_ts("", "Asia/Yangon"), "—")
+        self.assertEqual(local_ts("garbage", "Asia/Yangon"), "garbage")
 
 
 if __name__ == "__main__":

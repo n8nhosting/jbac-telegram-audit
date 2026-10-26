@@ -31,8 +31,8 @@
       <td class="small">{{ t('cl.' ~ ch.collector) }}</td>
       <td class="num">{{ "{:,}".format(ch.subscribers) if ch.subscribers else "—" }}</td>
       <td class="small mono">{{ ch.contracts_txt or "—" }}</td>
-      <td class="mono small">{{ (ch.last_checked or "—")[:16]|replace("T", " ") }}</td>
-      <td>{% if ch.dead_at %}{{ m.pill('dead', t('c.dead_since', d=ch.dead_at[:10])) }}{% elif ch.last_error %}{{ m.pill('invalid', ch.last_error[:40]) }}{% elif ch.last_checked %}{{ m.pill('ok', t('mg.alive')) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="mono small">{{ lt(ch.last_checked) }}</td>
+      <td>{% if ch.dead_at %}{{ m.pill('dead', t('c.dead_since', d=lt(ch.dead_at, "%Y-%m-%d"))) }}{% elif ch.last_error %}{{ m.pill('invalid', ch.last_error[:40]) }}{% elif ch.last_checked %}{{ m.pill('ok', t('mg.alive')) }}{% else %}<span class="muted">—</span>{% endif %}</td>
       <td><a class="btn btn-sm" href="/manage/channels/{{ ch.id }}/edit">✎ {{ t('mg.edit') }}</a></td>
     </tr>
     {% else %}
