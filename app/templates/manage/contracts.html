@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set page_icon = "📋" %}{% set page_title = t('nav.contracts') %}
+{% block title %}{{ t('nav.contracts') }} — Platinum audit{% endblock %}
+{% block body %}
+<div class="toolbar">
+  <form method="get" class="daynav" role="search">
+    <input type="search" name="q" value="{{ q }}" placeholder="{{ t('mg.search_contracts') }}" aria-label="{{ t('mg.search_contracts') }}">
+    <select name="status" aria-label="{{ t('mg.status') }}">
+      <option value="">{{ t('nav.all_status') }}</option>
+      {% for s in statuses %}<option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ t('cs.' ~ s) }}</option>{% endfor %}
+    </select>
+    <input type="month" name="month" value="{{ month }}" aria-label="{{ t('mg.month') }}">
+    <button class="btn" type="submit">{{ t('mg.filter') }}</button>
+  </form>
+  <a class="btn btn-pri" href="/manage/contracts/new">+ {{ t('mg.new_contract') }}</a>
+</div>
+
+<div class="panel">
+  <div class="phead"><h2>{{ t('nav.contracts') }}</h2><span class="spacer"></span><span class="muted small">{{ t('mg.count', n=rows|length) }}</span></div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>{{ t('mg.id') }}</th><th>{{ t('th.channel_contract') }}</th><th>{{ t('mg.section') }}</th><th>{{ t('th.terms') }}</th>
+      <th class="num">{{ t('th.fee') }}</th><th>{{ t('c.period') }}</th><th>{{ t('mg.status') }}</th><th class="num">{{ t('mg.channels_n') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td class="mono small">{{ r.sheet_contract_id }}{% if r.manual_locked %} <span class="tag info" title="{{ t('mg.locked_hint') }}">🔒</span>{% endif %}</td>
+      <td><a class="nm" href="/contracts/{{ r.id }}">{{ r.names_list|join(" / ") or r.sheet_contract_id }}</a>{% if r.admins_list %}<div class="sub">{{ r.admins_list|join(" ") }}</div>{% endif %}</td>
+      <td>{{ t('sec.' ~ (r.section or 'unknown')) }}</td>
+      <td>{% if r.quota_type == 'daily_post' %}{{ t('row.posts_per_day', n=r.quota_posts_per_day) }}{% else %}{{ t('row.custom') }}{% endif %}<div class="sub">{{ r.pin_label }}</div></td>
+      <td class="num">{{ "{:,}".format(r.amount_mmk) if r.amount_mmk else "—" }}</td>
+      <td class="mono small">{{ r.period_from or "?" }} – {{ r.period_to or "?" }}</td>
+      <td><span class="tag {{ 'ok' if r.status == 'active' else ('warn' if r.status == 'paused' else 'bad') }}">{{ t('cs.' ~ r.status) }}</span></td>
+      <td class="num">{{ r.n_channels }}</td>
+      <td><a class="btn btn-sm" href="/manage/contracts/{{ r.id }}/edit">✎ {{ t('mg.edit') }}</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9" class="muted">{{ t('mg.none') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+<p class="foot">{{ t('mg.locked_hint') }}</p>
+{% endblock %}

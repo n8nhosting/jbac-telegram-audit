@@ -26,6 +26,7 @@ from .db import connect, migrate
 from .i18n import LANGS, LANG_NAMES, STRINGS, pin_label, resolve_lang, status_label, t as _t
 from .forms import csrf_token, ensure_csrf_cookie, pop_flash
 from .importer import import_seed
+from . import manage as _manage
 from .rollup import rollup_date
 from .rules import now_local
 
@@ -399,6 +400,9 @@ def create_app(settings, conn: sqlite3.Connection | None = None, start_scheduler
     @app.get("/favicon.ico")
     async def favicon():
         return Response(content=FAVICON_SVG, media_type="image/svg+xml", headers={"Cache-Control": "public, max-age=86400"})
+
+    _manage.register(app, auth=auth, page_context=page_context, lang_of=lang_of, remember=_remember_lang,
+                     settings=settings, db=db, templates=TEMPLATES)
 
     @app.get("/robots.txt", response_class=PlainTextResponse)
     async def robots():

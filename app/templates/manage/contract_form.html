@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set page_icon = "📋" %}{% set page_title = (t('mg.new_contract') if mode == 'new' else t('mg.edit_contract', id=c.sheet_contract_id)) %}
+{% block title %}{{ page_title }} — Platinum audit{% endblock %}
+{% macro err(field) %}{% if errors.get(field) %}<div class="help" style="color:var(--bad)">{{ t(errors[field]) }}</div>{% endif %}{% endmacro %}
+{% block body %}
+<p class="crumbs"><a href="/manage/contracts">← {{ t('nav.contracts') }}</a>{% if c %} · <a href="/contracts/{{ c.id }}">{{ t('mg.view_detail') }}</a>{% endif %}</p>
+
+<form method="post" action="{% if mode == 'new' %}/manage/contracts/new{% else %}/manage/contracts/{{ c.id }}/edit{% endif %}" class="panel">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="phead"><h2>{{ page_title }}</h2>{% if c and c.manual_locked %}<span class="tag info">🔒 {{ t('mg.locked') }}</span>{% endif %}</div>
+  <div class="pbody">
+    <div class="form">
+      <div class="f wide"><label for="names">{{ t('mg.names') }}</label><textarea id="names" name="names" required>{{ values.names }}</textarea><div class="help">{{ t('mg.names_help') }}</div>{{ err('names') }}</div>
+      <div class="f"><label for="month">{{ t('mg.month') }}</label><input id="month" type="month" name="month" value="{{ values.month }}" required>{{ err('month') }}</div>
+      <div class="f"><label for="section">{{ t('mg.section') }}</label><select id="section" name="section">{% for s in sections %}<option value="{{ s }}" {% if values.section == s %}selected{% endif %}>{{ t('sec.' ~ s) }}</option>{% endfor %}</select></div>
+      <div class="f"><label for="exclusivity">{{ t('c.exclusivity') }}</label><input id="exclusivity" type="number" name="exclusivity" min="1" max="9" value="{{ values.exclusivity }}">{{ err('exclusivity') }}</div>
+      <div class="f"><label for="status">{{ t('mg.status') }}</label><select id="status" name="status">{% for s in statuses %}<option value="{{ s }}" {% if values.status == s %}selected{% endif %}>{{ t('cs.' ~ s) }}</option>{% endfor %}</select></div>
+      <div class="f"><label for="quota_type">{{ t('c.quota') }}</label><select id="quota_type" name="quota_type">{% for q in quota_types %}<option value="{{ q }}" {% if values.quota_type == q %}selected{% endif %}>{{ t('qt.' ~ q) }}</option>{% endfor %}</select></div>
+      <div class="f"><label for="quota_posts_per_day">{{ t('mg.posts_per_day') }}</label><input id="quota_posts_per_day" type="number" name="quota_posts_per_day" min="1" value="{{ values.quota_posts_per_day }}">{{ err('quota_posts_per_day') }}</div>
+      <div class="f"><label for="pin_kind">{{ t('mg.pin_rule') }}</label><select id="pin_kind" name="pin_kind">{% for p in pin_kinds %}<option value="{{ p }}" {% if values.pin_kind == p %}selected{% endif %}>{{ t('pk.' ~ p) }}</option>{% endfor %}</select></div>
+      <div class="f"><label for="pin_n">{{ t('mg.pin_n') }}</label><input id="pin_n" type="number" name="pin_n" min="1" value="{{ values.pin_n }}"><div class="help">{{ t('mg.pin_n_help') }}</div>{{ err('pin_n') }}</div>
+      <div class="f"><label for="amount_mmk">{{ t('c.fee') }} (MMK)</label><input id="amount_mmk" class="mono" type="text" inputmode="numeric" name="amount_mmk" value="{{ values.amount_mmk }}">{{ err('amount_mmk') }}</div>
+      <div class="f"><label for="period_from">{{ t('mg.period_from') }}</label><input id="period_from" type="date" name="period_from" value="{{ values.period_from }}">{{ err('period_from') }}</div>
+      <div class="f"><label for="period_to">{{ t('mg.period_to') }}</label><input id="period_to" type="date" name="period_to" value="{{ values.period_to }}">{{ err('period_to') }}</div>
+      <div class="f wide"><label for="admin_accounts">{{ t('c.admins') }}</label><input id="admin_accounts" name="admin_accounts" value="{{ values.admin_accounts }}" placeholder="@admin1 @admin2"></div>
+      <div class="f wide"><label for="remark_raw">{{ t('c.remark') }}</label><input id="remark_raw" name="remark_raw" value="{{ values.remark_raw }}" placeholder="1 day 1 post / pin daily / only us"></div>
+      <div class="f wide"><label for="note">{{ t('c.note') }}</label><textarea id="note" name="note">{{ values.note }}</textarea></div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-pri" type="submit">{{ t('mg.save') }}</button>
+      <a class="btn" href="{% if c %}/contracts/{{ c.id }}{% else %}/manage/contracts{% endif %}">{{ t('mg.cancel') }}</a>
+      <span class="muted small">{{ t('mg.locked_hint') }}</span>
+    </div>
+  </div>
+</form>
+
+{% if mode == 'edit' %}
+<div class="panel">
+  <div class="phead"><h2>{{ t('c.channels') }}</h2><span class="spacer"></span><span class="muted small">{{ t('mg.count', n=channels|length) }}</span></div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>{{ t('c.channel') }}</th><th>{{ t('c.type') }}</th><th class="num">{{ t('c.subscribers') }}</th><th>{{ t('c.last_checked') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for ch in channels %}
+    <tr>
+      <td>{% if ch.url %}<a href="{{ ch.url }}" target="_blank" rel="noopener">{{ ch.title_observed or ch.title or ch.channel_key }}</a>{% else %}{{ ch.title or ch.channel_key }}{% endif %}<div class="sub mono">{{ ch.channel_key }}</div></td>
+      <td>{{ ch.kind }}<div class="sub">{{ ch.collector }}</div>{% if ch.dead_at %}<div>{{ m.pill('dead', t('c.dead_since', d=ch.dead_at[:10])) }}</div>{% endif %}</td>
+      <td class="num">{{ "{:,}".format(ch.subscribers) if ch.subscribers else "—" }}</td>
+      <td class="mono small">{{ (ch.last_checked or "—")[:16]|replace("T", " ") }}</td>
+      <td><div class="rowacts"><a class="btn btn-sm" href="/manage/channels/{{ ch.id }}/edit">✎ {{ t('mg.edit') }}</a>
+        <form method="post" action="/manage/contracts/{{ c.id }}/channels/{{ ch.id }}/detach" class="inline" onsubmit="return confirm('{{ t('mg.confirm_detach') }}')"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-sm btn-bad" type="submit">{{ t('mg.detach') }}</button></form></div></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="muted">{{ t('mg.no_channels') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <form method="post" action="/manage/contracts/{{ c.id }}/channels/add" class="pbody" style="border-top:1px solid var(--line)">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="form">
+      <div class="f"><label for="url">{{ t('mg.add_channel_url') }}</label><input id="url" name="url" required placeholder="https://t.me/+hash · https://t.me/username · @username"></div>
+      <div class="f"><label for="title">{{ t('mg.channel_title') }}</label><input id="title" name="title" placeholder="{{ t('mg.channel_title_help') }}"></div>
+      <div class="f" style="justify-content:flex-end"><label>&nbsp;</label><button class="btn btn-ok" type="submit">+ {{ t('mg.add_channel') }}</button></div>
+    </div>
+    <div class="help" style="margin-top:8px">{{ t('mg.add_channel_help') }}</div>
+  </form>
+</div>
+{% else %}
+<p class="hint">{{ t('mg.save_first') }}</p>
+{% endif %}
+{% endblock %}
