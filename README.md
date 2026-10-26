@@ -12,6 +12,7 @@
 - ✅ ระบบตรวจจริง (Python service: FastAPI + scheduler + SQLite + Telethon) ใน `app/` ทดสอบในเครื่องแล้ว — ดู SPEC.md §10b, ADR-002 · dashboard และ DM 3 ภาษา ไทย / English / မြန်မာ
 - ✅ ปรับ UI dashboard (26 ต.ค. 2026): หน้ารวมแบบ exception-first — การ์ด KPI + แถบสัดส่วนสถานะที่กดกรองได้ + นับถอยหลัง cutoff, ตารางแบ่งแถบตามความรุนแรง, ไอคอนสถานะ SVG, มือถือเป็นการ์ด
 - ✅ Theme เดียวกับ Payment Recon + หน้าจัดการ (26 ต.ค. 2026): sidebar/topbar/การ์ดไล่สี สลับมืด-สว่าง (`localStorage.adm_theme`) · เมนู: ตรวจวันนี้ · รายงานรายเดือน (สัญญา × วัน) · สัญญา · ช่อง · Reg รายเดือน · หยุด/คืนเงิน/ติดตาม · นำเข้า/ส่งออก · ตั้งค่าและสถานะ — รายการที่แก้จากหน้าเว็บติด 🔒 และ import ชีตจะไม่ทับ (`docs/superpowers/specs/2026-10-26-manage-pages-design.md`)
+- ✅ บัญชีสมาชิก MTProto เปิดใช้แล้ว (27 ต.ค. 2026): ช่องส่วนตัว/ปิด preview และสถานะ pin ตรวจได้ ทยอย join ≤3 ช่องต่อรอบ 30 นาที · เวลาทุกจุดบนหน้าเว็บเป็น Asia/Yangon
 - ✅ Deploy บน Coolify แล้ว (26 ต.ค. 2026): https://audit.jbacteam.com (HTTP Basic, user `admin`) — repo `github.com/n8nhosting/jbac-telegram-audit` (private, deploy key), push `main` แล้วสั่ง deploy ใน Coolify หรือ `POST /api/v1/deploy?uuid=<app>` (`deploy/README.md`)
 
 ## รัน service ในเครื่อง
