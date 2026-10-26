@@ -1,56 +1,69 @@
 {% extends "base.html" %}
-{% block title %}{{ c.names_list|join(" / ") or c.sheet_contract_id }} — Platinum audit{% endblock %}
-{% block meta %}<a href="/?date={{ day }}">{{ t('nav.back') }}</a>{% endblock %}
+{% import "_macros.html" as m %}
+{% set name = c.names_list|join(" / ") or c.sheet_contract_id %}
+{% block title %}{{ name }} — Platinum audit{% endblock %}
 {% block body %}
-<h2 style="margin:0 0 4px;font-size:18px">{{ c.names_list|join(" / ") or c.sheet_contract_id }}</h2>
-<div class="muted small">{{ c.sheet_contract_id }} · {{ c.section or "—" }} · {{ t('c.advertisers', n=(c.exclusivity or "?")) }} · {{ c.pin_label }} · {% if c.quota_type=='daily_post' %}{{ t('row.posts_per_day', n=c.quota_posts_per_day) }}{% else %}{{ t('row.custom') }}{% endif %} · {{ "{:,}".format(c.amount_mmk) if c.amount_mmk else "—" }} {{ t('c.per_month') }} · {{ c.period_from or "?" }} → {{ c.period_to or t('c.unspecified') }} · {{ c.admins_list|join(" ") }}</div>
-{% if c.remark_raw %}<div class="small muted">{{ t('c.remark') }}: {{ c.remark_raw }}</div>{% endif %}
+<p class="crumbs"><a href="/?date={{ day }}">{{ t('nav.back') }}</a></p>
+<h1 class="title">{{ name }}</h1>
+<dl class="facts">
+  <div><dt>{{ t('c.contract_id') }}</dt><dd>{{ c.sheet_contract_id }}{% if c.section %} · {{ c.section }}{% endif %}</dd></div>
+  <div><dt>{{ t('c.quota') }}</dt><dd>{% if c.quota_type=='daily_post' %}{{ t('row.posts_per_day', n=c.quota_posts_per_day) }}{% else %}{{ t('row.custom') }}{% endif %} · {{ c.pin_label }}</dd></div>
+  <div><dt>{{ t('c.exclusivity') }}</dt><dd>{{ t('c.advertisers', n=(c.exclusivity or "?")) }}</dd></div>
+  <div><dt>{{ t('c.fee') }}</dt><dd>{{ "{:,}".format(c.amount_mmk) if c.amount_mmk else "—" }} {{ t('c.per_month') }}</dd></div>
+  <div><dt>{{ t('c.period') }}</dt><dd>{{ c.period_from or "?" }} – {{ c.period_to or t('c.unspecified') }}</dd></div>
+  <div><dt>{{ t('c.admins') }}</dt><dd>{{ c.admins_list|join(" ") or "—" }}</dd></div>
+  {% if c.remark_raw %}<div class="wide"><dt>{{ t('c.remark') }}</dt><dd>{{ c.remark_raw }}</dd></div>{% endif %}
+</dl>
 
-<section class="kpis" style="margin-top:12px">
+<section class="daypanel {{ c.today.status if c.today else 'none' }}" aria-label="{{ t('c.status_on', d=day) }}">
   {% if c.today %}
-  <div class="kpi"><div class="n"><span class="pill {{ c.today.status }}">{{ c.today.status_label }}</span></div><div class="l">{{ t('c.status_on', d=day) }}</div></div>
-  <div class="kpi"><div class="n">{{ c.today.qualified }}/{{ c.today.required }}</div><div class="l">{{ t('c.passed_required') }}</div></div>
-  <div class="kpi"><div class="n">{% if c.today.pin_ok is none %}—{% elif c.today.pin_ok %}✅{% else %}❌{% endif %}</div><div class="l">pin</div></div>
-  {% else %}<div class="kpi"><div class="n">—</div><div class="l">{{ t('c.not_computed', d=day) }}</div></div>{% endif %}
+  <div>{{ m.pill(c.today.status, c.today.status_label) }}<div class="sub">{{ t('c.status_on', d=day) }}</div></div>
+  <div class="stats">
+    <div><div class="v frac"><b>{{ c.today.qualified }}</b><span class="sl">/</span>{{ c.today.required if c.today.required is not none else "—" }}</div><div class="k">{{ t('c.passed_required') }}</div></div>
+    <div><div class="v">{{ m.yesno(c.today.pin_ok, t('c.passed'), t('c.not_passed')) }}</div><div class="k">{{ t('c.pin_today') }}</div></div>
+    {% if c.today.digest %}<div><div class="v text">{{ c.today.digest }}</div><div class="k">{{ t('c.note') }}</div></div>{% endif %}
+  </div>
+  {% else %}<div class="muted">{{ t('c.not_computed', d=day) }}</div>{% endif %}
 </section>
 
 <div class="cards">
-<div class="card">
-  <h3>{{ t('c.channels') }}</h3>
+<section class="card">
+  <h2>{{ t('c.channels') }}</h2>
   <table><thead><tr><th>{{ t('c.channel') }}</th><th>{{ t('c.type') }}</th><th class="num">{{ t('c.subscribers') }}</th><th>{{ t('c.last_checked') }}</th></tr></thead><tbody>
   {% for ch in c.channels %}
   <tr><td>{% if ch.url %}<a href="{{ ch.url }}" target="_blank" rel="noopener">{{ ch.title_observed or ch.title or ch.channel_key }}</a>{% else %}{{ ch.title or ch.channel_key }}{% endif %}
-      <div class="small muted">{{ ch.channel_key }}{% if ch.title_observed and ch.title and ch.title_observed != ch.title %} · {{ t('c.sheet') }}: {{ ch.title }}{% endif %}</div></td>
-      <td class="small">{{ ch.kind }}<br><span class="muted">{{ ch.collector }}{% if ch.dead_at %} · <span class="pill dead">{{ t('c.dead_since', d=ch.dead_at[:10]) }}</span>{% endif %}</span></td>
+      <div class="sub">{{ ch.channel_key }}{% if ch.title_observed and ch.title and ch.title_observed != ch.title %} · {{ t('c.sheet') }}: {{ ch.title }}{% endif %}</div></td>
+      <td>{{ ch.kind }}<div class="sub">{{ ch.collector }}</div>{% if ch.dead_at %}<div>{{ m.pill('dead', t('c.dead_since', d=ch.dead_at[:10])) }}</div>{% endif %}</td>
       <td class="num">{{ "{:,}".format(ch.subscribers) if ch.subscribers else "—" }}</td>
-      <td class="small">{{ (ch.last_checked or "—")[:16] }}{% if ch.last_error %}<br><span class="pill missed">{{ ch.last_error[:60] }}</span>{% endif %}</td></tr>
+      <td>{{ (ch.last_checked or "—")[:16]|replace("T", " ") }}{% if ch.last_error %}<div>{{ m.pill('missed', ch.last_error[:60]) }}</div>{% endif %}</td></tr>
   {% endfor %}
   </tbody></table>
-</div>
-<div class="card">
-  <h3>{{ t('c.last30') }}</h3>
-  <div style="display:flex;flex-wrap:wrap;gap:4px">
-  {% for r in c.rollups %}<a href="/contracts/{{ c.id }}?date={{ r.local_date }}" class="pill {{ r.status }}" title="{{ r.local_date }}: {{ r.status_label }} {{ r.qualified }}/{{ r.required }}">{{ r.local_date[5:] }}</a>{% else %}<span class="muted">{{ t('c.no_rollup') }}</span>{% endfor %}
+</section>
+<section class="card">
+  <h2>{{ t('c.last30') }}</h2>
+  <p class="hint">{{ t('c.strip_hint') }}</p>
+  <div class="strip">
+  {% for r in c.rollups|reverse %}<a class="{{ r.status }}{% if r.local_date == day %} sel{% endif %}" href="/contracts/{{ c.id }}?date={{ r.local_date }}" title="{{ r.local_date }} · {{ r.status_label }} {{ r.qualified }}/{{ r.required }}" aria-label="{{ r.local_date }} {{ r.status_label }}">{{ m.glyph(r.status) }}<span>{{ r.local_date[8:] }}</span></a>{% else %}<span class="muted">{{ t('c.no_rollup') }}</span>{% endfor %}
   </div>
-  {% if c.regs %}<h3 style="margin-top:12px">{{ t('c.regs') }}</h3><div class="small">{% for r in c.regs %}{{ r.month }}: <b>{{ r.reg }}</b>{% if not loop.last %} · {% endif %}{% endfor %}</div>{% endif %}
-  {% if c.aliases %}<h3 style="margin-top:12px">{{ t('c.aliases') }}</h3><ul class="small">{% for a in c.aliases %}<li>{{ a.old_title or "" }} {{ a.old_url or a.old_channel_key or "" }} <span class="muted">({{ a.source }}, {{ a.seen_at[:10] }})</span></li>{% endfor %}</ul>{% endif %}
-  {% if c.events %}<h3 style="margin-top:12px">{{ t('c.events') }}</h3><ul class="small">{% for e in c.events %}<li>{{ e.happened_at[:16] }} <b>{{ e.event }}</b> {{ e.channel_key or "" }} <span class="muted">{{ e.note or "" }}</span></li>{% endfor %}</ul>{% endif %}
-</div>
+  {% if c.regs %}<h2 class="sec">{{ t('c.regs') }}</h2><div class="regs">{% for r in c.regs %}<span>{{ r.month }} <b>{{ r.reg }}</b></span>{% endfor %}</div>{% endif %}
+  {% if c.aliases %}<h2 class="sec">{{ t('c.aliases') }}</h2><ul class="list">{% for a in c.aliases %}<li>{{ a.old_title or "" }} {{ a.old_url or a.old_channel_key or "" }} <span class="muted">({{ a.source }}, {{ a.seen_at[:10] }})</span></li>{% endfor %}</ul>{% endif %}
+  {% if c.events %}<h2 class="sec">{{ t('c.events') }}</h2><ul class="list">{% for e in c.events %}<li>{{ e.happened_at[:16]|replace("T", " ") }} <b>{{ e.event }}</b> {{ e.channel_key or "" }} <span class="muted">{{ e.note or "" }}</span></li>{% endfor %}</ul>{% endif %}
+</section>
 </div>
 
-<h3 style="margin:16px 0 8px">{{ t('c.evidence_title', n=c.posts|length) }}</h3>
-<div class="tablebox">
-<table><thead><tr><th>{{ t('c.day', tz=tz) }}</th><th>{{ t('c.time_utc') }}</th><th>{{ t('c.channel') }}</th><th>{{ t('c.passed') }}</th><th class="hide-sm">{{ t('c.media_link') }}</th><th class="hide-sm">pin</th><th class="num hide-sm">{{ t('c.views') }}</th><th>{{ t('c.text') }}</th><th>{{ t('c.link') }}</th></tr></thead>
+<h2 class="sec">{{ t('c.evidence_title', n=c.posts|length) }}</h2>
+<div class="tablebox"><div class="scroll">
+<table class="ledger"><thead><tr><th>{{ t('c.day', tz=tz) }}</th><th>{{ t('c.time_local', tz=tz) }}</th><th>{{ t('c.channel') }}</th><th>{{ t('c.passed') }}</th><th>{{ t('c.media_link') }}</th><th>{{ t('th.pin') }}</th><th class="num">{{ t('c.views') }}</th><th>{{ t('c.text') }}</th><th>{{ t('c.link') }}</th></tr></thead>
 <tbody>
 {% for p in c.posts %}
-<tr><td>{{ p.local_date }}</td><td class="small">{{ p.posted_at[11:16] }}</td><td class="small">{{ p.channel_key }}</td>
-    <td>{% if p.qualifies %}<span class="pill ok">{{ t('c.passed') }}{% if p.legacy_match %} (legacy){% endif %}</span>{% else %}<span class="pill invalid">{{ p.qualify_reason }}</span>{% endif %}</td>
-    <td class="hide-sm small">{% if p.has_media %}{{ t('c.media') }}{% endif %}{% if p.has_link %} {{ t('c.link') }}{% endif %}{% if p.has_sticker %} {{ t('c.sticker') }}{% endif %}</td>
-    <td class="hide-sm">{% if p.is_pinned is none %}—{% elif p.is_pinned %}📌{% else %}·{% endif %}</td>
-    <td class="num hide-sm">{{ p.views if p.views is not none else "—" }}</td>
-    <td class="small">{{ (p.text_preview or "")[:120] }}</td>
-    <td>{% if p.permalink %}<a href="{{ p.permalink }}" target="_blank" rel="noopener">{{ t('c.open') }}</a>{% endif %}</td></tr>
+<tr class="row"><td class="name" style="min-width:0">{{ p.local_date }}</td><td data-l="{{ t('c.time_local', tz=tz) }}">{{ p.time_local }}</td><td data-l="{{ t('c.channel') }}">{{ p.channel_key }}</td>
+    <td data-l="{{ t('c.passed') }}">{% if p.qualifies %}{{ m.pill('ok', t('c.passed')) }}{% if p.legacy_match %} <span class="hint">{{ t('c.legacy') }}</span>{% endif %}{% else %}{{ m.pill('invalid', p.qualify_reason or t('c.not_passed')) }}{% endif %}</td>
+    <td data-l="{{ t('c.media_link') }}">{% if p.has_media %}{{ t('c.media') }}{% endif %}{% if p.has_link %} {{ t('c.link') }}{% endif %}{% if p.has_sticker %} {{ t('c.sticker') }}{% endif %}</td>
+    <td data-l="{{ t('th.pin') }}">{% if p.is_pinned is none %}<span class="muted">—</span>{% elif p.is_pinned %}<span class="yn ok">{{ m.glyph('pin') }}<span class="sr-only">pin</span></span>{% else %}<span class="muted">·</span>{% endif %}</td>
+    <td class="num" data-l="{{ t('c.views') }}">{{ p.views if p.views is not none else "—" }}</td>
+    <td data-l="{{ t('c.text') }}">{{ (p.text_preview or "")[:120] }}</td>
+    <td class="ev">{% if p.permalink %}<a class="evi" href="{{ p.permalink }}" target="_blank" rel="noopener">{{ t('c.open') }}{{ m.glyph('next') }}</a>{% endif %}</td></tr>
 {% else %}<tr><td colspan="9" class="muted">{{ t('c.no_posts') }}{% if c.channels and c.channels[0].collector in ['invite','profile'] %}{{ t('c.needs_mtproto') }}{% endif %}</td></tr>{% endfor %}
 </tbody></table>
-</div>
+</div></div>
 {% endblock %}

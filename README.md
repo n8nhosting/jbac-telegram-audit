@@ -10,6 +10,7 @@
 - ✅ พิสูจน์ความเป็นไปได้ของการอ่าน `t.me/s/` (probe 108 username) → ตัดสินสถาปัตยกรรม Hybrid
 - ✅ Dashboard วิเคราะห์จาก Excel: https://claude.ai/artifact/GQaZoeQFZqCCsgKLuDbZM6 (ส่วนตัว จนกว่าจะกดแชร์จากหน้า)
 - ✅ ระบบตรวจจริง (Python service: FastAPI + scheduler + SQLite + Telethon) ใน `app/` ทดสอบในเครื่องแล้ว — ดู SPEC.md §10b, ADR-002 · dashboard และ DM 3 ภาษา ไทย / English / မြန်မာ
+- ✅ ปรับ UI dashboard (26 ต.ค. 2026): หน้ารวมแบบ exception-first — เลข "ต้องจัดการ" + แถบสัดส่วนสถานะที่กดกรองได้ + นับถอยหลัง cutoff, ตารางแบ่งแถบตามความรุนแรง, ไอคอนสถานะ SVG, มือถือเป็นการ์ด, โหมดมืด; โทเคนสี/ฟอนต์อยู่ใน `app/templates/base.html` (IBM Plex Sans Thai + Noto Sans Myanmar)
 - ✅ Deploy บน Coolify แล้ว (26 ต.ค. 2026): https://audit.jbacteam.com (HTTP Basic, user `admin`) — repo `github.com/n8nhosting/jbac-telegram-audit` (private, deploy key), push `main` แล้วสั่ง deploy ใน Coolify หรือ `POST /api/v1/deploy?uuid=<app>` (`deploy/README.md`)
 
 ## รัน service ในเครื่อง

@@ -1,0 +1,12 @@
+{# Shared pieces: status glyph (SVG sprite in base.html), status pill, yes/no mark #}
+{% macro glyph(name) -%}
+<svg class="g" aria-hidden="true" focusable="false"><use href="#g-{{ name }}"/></svg>
+{%- endmacro %}
+
+{% macro pill(status, label) -%}
+<span class="pill {{ status or 'none' }}">{{ glyph(status or 'none') }}<span>{{ label }}</span></span>
+{%- endmacro %}
+
+{% macro yesno(value, yes, no) -%}
+{% if value is none %}<span class="muted">—</span>{% elif value %}<span class="yn ok">{{ glyph('ok') }}<span class="sr-only">{{ yes }}</span></span>{% else %}<span class="yn missed">{{ glyph('missed') }}<span class="sr-only">{{ no }}</span></span>{% endif %}
+{%- endmacro %}
