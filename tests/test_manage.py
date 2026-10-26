@@ -123,5 +123,70 @@ class TestContracts(ManageCase):
         self.assertEqual(self.client.get("/manage/contracts/9999/edit").status_code, 404)
 
 
+class TestChannels(ManageCase):
+    def chid(self, key="pub:chana"):
+        return one(self.conn, "SELECT id FROM channels WHERE channel_key=?", (key,))["id"]
+
+    def test_list_and_filters(self):
+        r = self.client.get("/manage/channels?lang=en")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("pub:chana", r.text)
+        self.conn.execute("UPDATE channels SET dead_at='2026-10-20T00:00:00+00:00', dead_misses=3 WHERE channel_key='pub:chanc'")
+        self.conn.commit()
+        r = self.client.get("/manage/channels?dead=1")
+        self.assertIn("pub:chanc", r.text)
+        self.assertNotIn("pub:chana", r.text)
+        r = self.client.get("/manage/channels?q=AAAA")
+        self.assertIn("prv:AAAA1111", r.text)
+        self.assertNotIn("pub:chana", r.text)
+
+    def test_new_channel_creates_and_optionally_attaches(self):
+        cid = self.cid()
+        r = self.post("/manage/channels/new", url="https://t.me/BrandNew", title="Brand New", contract_id=str(cid), note="hello")
+        self.assertEqual(r.status_code, 303, r.text)
+        ch = one(self.conn, "SELECT * FROM channels WHERE channel_key='pub:brandnew'")
+        self.assertEqual((ch["title"], ch["note"], ch["manual_locked"], ch["kind"]), ("Brand New", "hello", 1, "public_preview"))
+        self.assertIsNotNone(one(self.conn, "SELECT 1 FROM contract_channels WHERE contract_id=? AND channel_id=?", (cid, ch["id"])))
+        self.assertTrue(r.headers["location"].startswith(f"/manage/channels/{ch['id']}/edit"))
+        r = self.post("/manage/channels/new", url="@BrandNew", title="", contract_id="", note="")
+        self.assertEqual(r.status_code, 303)
+        self.assertEqual(one(self.conn, "SELECT COUNT(*) AS n FROM channels WHERE channel_key='pub:brandnew'")["n"], 1)
+        r = self.post("/manage/channels/new", url="https://facebook.com/x", title="", contract_id="", note="")
+        self.assertEqual(r.status_code, 200)                           # form re-rendered with the link error
+
+    def test_edit_moves_link_and_keeps_alias(self):
+        chid = self.chid()
+        r = self.client.get(f"/manage/channels/{chid}/edit?lang=en")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('value="https://t.me/chana"', r.text)
+        r = self.post(f"/manage/channels/{chid}/edit", url="https://t.me/ChanA_new", title="Chan A new", note="moved")
+        self.assertEqual(r.status_code, 303, r.text)
+        ch = one(self.conn, "SELECT * FROM channels WHERE id=?", (chid,))
+        self.assertEqual((ch["channel_key"], ch["username"], ch["title"], ch["manual_locked"], ch["note"]), ("pub:chana_new", "chana_new", "Chan A new", 1, "moved"))
+        self.assertIsNone(ch["last_message_id"])
+        alias = one(self.conn, "SELECT * FROM channel_aliases WHERE channel_id=? ORDER BY id DESC LIMIT 1", (chid,))
+        self.assertEqual((alias["old_channel_key"], alias["source"]), ("pub:chana", "manual"))
+        self.assertEqual(one(self.conn, "SELECT action FROM admin_log ORDER BY id DESC LIMIT 1")["action"], "channel.update")
+
+    def test_edit_rejects_link_collision(self):
+        chid = self.chid()
+        r = self.post(f"/manage/channels/{chid}/edit", url="https://t.me/ChanC", title="", note="")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(one(self.conn, "SELECT channel_key FROM channels WHERE id=?", (chid,))["channel_key"], "pub:chana")
+
+    def test_revive_dead_channel(self):
+        chid = self.chid("pub:chanc")
+        self.conn.execute("UPDATE channels SET dead_at='2026-10-20T00:00:00+00:00', dead_misses=3, last_error='gone' WHERE id=?", (chid,))
+        self.conn.commit()
+        r = self.post(f"/manage/channels/{chid}/revive")
+        self.assertEqual(r.status_code, 303)
+        ch = one(self.conn, "SELECT dead_at, dead_misses, last_error FROM channels WHERE id=?", (chid,))
+        self.assertEqual((ch["dead_at"], ch["dead_misses"], ch["last_error"]), (None, 0, None))
+        self.assertEqual(one(self.conn, "SELECT action FROM admin_log ORDER BY id DESC LIMIT 1")["action"], "channel.revive")
+
+    def test_unknown_channel_404(self):
+        self.assertEqual(self.client.get("/manage/channels/9999/edit").status_code, 404)
+
+
 if __name__ == "__main__":
     unittest.main()

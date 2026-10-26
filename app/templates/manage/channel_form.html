@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set page_icon = "📡" %}{% set page_title = (t('mg.new_channel') if mode == 'new' else t('mg.edit_channel', id=ch.channel_key)) %}
+{% block title %}{{ page_title }} — Platinum audit{% endblock %}
+{% macro err(field) %}{% if errors.get(field) %}<div class="help" style="color:var(--bad)">{{ t(errors[field]) }}</div>{% endif %}{% endmacro %}
+{% block body %}
+<p class="crumbs"><a href="/manage/channels">← {{ t('nav.channels') }}</a></p>
+
+<form method="post" action="{% if mode == 'new' %}/manage/channels/new{% else %}/manage/channels/{{ ch.id }}/edit{% endif %}" class="panel">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="phead"><h2>{{ page_title }}</h2>{% if ch and ch.manual_locked %}<span class="tag info">🔒 {{ t('mg.locked') }}</span>{% endif %}
+    {% if ch and ch.dead_at %}<span class="spacer"></span>{{ m.pill('dead', t('c.dead_since', d=ch.dead_at[:10])) }}{% endif %}</div>
+  <div class="pbody">
+    <div class="form">
+      <div class="f wide"><label for="url">{{ t('mg.add_channel_url') }}</label><input id="url" name="url" value="{{ values.url }}" required placeholder="https://t.me/+hash · https://t.me/username · @username"><div class="help">{{ t('mg.channel_url_help') }}</div>{{ err('url') }}</div>
+      <div class="f"><label for="title">{{ t('mg.channel_title') }}</label><input id="title" name="title" value="{{ values.title }}" placeholder="{{ t('mg.channel_title_help') }}"></div>
+      <div class="f"><label for="contract_id">{{ t('mg.attach_to') }}</label><select id="contract_id" name="contract_id"><option value="">{{ t('mg.none_attach') }}</option>{% for c in contracts %}<option value="{{ c.id }}" {% if values.contract_id|string == c.id|string %}selected{% endif %}>{{ c.label }}</option>{% endfor %}</select></div>
+      <div class="f wide"><label for="note">{{ t('c.note') }}</label><textarea id="note" name="note">{{ values.note }}</textarea></div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-pri" type="submit">{{ t('mg.save') }}</button>
+      <a class="btn" href="/manage/channels">{{ t('mg.cancel') }}</a>
+    </div>
+  </div>
+</form>
+
+{% if mode == 'edit' %}
+<div class="grid2">
+  <section class="card">
+    <h2>{{ t('mg.state') }}</h2>
+    <table>
+      <tr><th>{{ t('mg.kind') }}</th><td>{{ t('ck.' ~ ch.kind) }} · {{ t('cl.' ~ ch.collector) }}</td></tr>
+      <tr><th>{{ t('c.subscribers') }}</th><td class="mono">{{ "{:,}".format(ch.subscribers) if ch.subscribers else "—" }}</td></tr>
+      <tr><th>{{ t('mg.observed_title') }}</th><td>{{ ch.title_observed or "—" }}</td></tr>
+      <tr><th>{{ t('c.last_checked') }}</th><td class="mono">{{ (ch.last_checked or "—")[:16]|replace("T", " ") }}</td></tr>
+      <tr><th>{{ t('mg.last_error') }}</th><td>{{ ch.last_error or "—" }}</td></tr>
+      <tr><th>{{ t('mg.dead_misses') }}</th><td class="mono">{{ ch.dead_misses }}{% if ch.dead_at %} · {{ ch.dead_at[:10] }}{% endif %}</td></tr>
+    </table>
+    {% if ch.dead_at or ch.last_error %}
+    <form method="post" action="/manage/channels/{{ ch.id }}/revive" class="actions" onsubmit="return confirm('{{ t('mg.confirm_revive') }}')">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-ok" type="submit">{{ t('mg.revive') }}</button><span class="hint">{{ t('mg.revive_help') }}</span>
+    </form>
+    {% endif %}
+  </section>
+  <section class="card">
+    <h2>{{ t('mg.linked_contracts') }}</h2>
+    {% if linked %}<ul class="list">{% for l in linked %}<li><a href="/manage/contracts/{{ l.id }}/edit">{{ l.sheet_contract_id }}</a> · {{ l.names_list|join(" / ") }}</li>{% endfor %}</ul>{% else %}<p class="muted">{{ t('mg.not_linked') }}</p>{% endif %}
+    <p class="hint">{{ t('mg.detach_hint') }}</p>
+  </section>
+</div>
+{% endif %}
+{% endblock %}

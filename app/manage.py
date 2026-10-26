@@ -24,6 +24,7 @@ SECTIONS = ["only_us", "only_two", "only_three", "only_four", "only_five", "infl
 CONTRACT_STATUSES = ["active", "paused", "stopped", "refund"]
 PIN_KINDS = ["none", "daily", "per_month", "every_days"]
 QUOTA_TYPES = ["daily_post", "custom"]
+CHANNEL_KINDS = ["public_preview", "public_no_preview", "private", "group", "not_channel", "unknown"]
 _MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
 
@@ -290,6 +291,139 @@ def register(app, *, auth, page_context, lang_of, remember, settings, db, templa
         conn.commit()
         log_admin(conn, settings.dash_user, "contract.attach", c["sheet_contract_id"], {"channel_id": chid, "created": created, "url": info.get("url")})
         return _redirect(f"/manage/contracts/{contract_id}/edit", _t(lang, "mg.channel_added" if created else "mg.channel_attached"))
+
+    # ---- channels --------------------------------------------------------
+    def _channel_rows(conn, q: str = "", kind: str = "", dead: bool = False) -> list[dict]:
+        where, params = [], []
+        if q:
+            like = f"%{q}%"
+            where.append("(ch.channel_key LIKE ? OR ch.title LIKE ? OR ch.title_observed LIKE ? OR ch.username LIKE ?)")
+            params += [like, like, like, like]
+        if kind:
+            where.append("ch.kind=?")
+            params.append(kind)
+        if dead:
+            where.append("ch.dead_at IS NOT NULL")
+        sql = f"""SELECT ch.*, (SELECT GROUP_CONCAT(c.sheet_contract_id, ', ') FROM contract_channels cc JOIN contracts c ON c.id=cc.contract_id
+                                WHERE cc.channel_id=ch.id) AS contracts_txt,
+                         (SELECT COUNT(*) FROM contract_channels cc WHERE cc.channel_id=ch.id) AS n_contracts
+                  FROM channels ch {"WHERE " + " AND ".join(where) if where else ""}
+                  ORDER BY (ch.dead_at IS NOT NULL) DESC, ch.last_error IS NOT NULL DESC, ch.title_observed, ch.title, ch.channel_key"""
+        out = []
+        for r in conn.execute(sql, params):
+            d = dict(r)
+            d["url"] = f"https://t.me/{d['username']}" if d["username"] else (f"https://t.me/+{d['invite_hash']}" if d["invite_hash"] else None)
+            out.append(d)
+        return out
+
+    def _load_channel(channel_id: int) -> dict:
+        row = one(db(), "SELECT * FROM channels WHERE id=?", (channel_id,))
+        if not row:
+            raise HTTPException(status_code=404, detail="channel not found")
+        d = dict(row)
+        d["url"] = f"https://t.me/{d['username']}" if d["username"] else (f"https://t.me/+{d['invite_hash']}" if d["invite_hash"] else None)
+        return d
+
+    def _contract_options(conn) -> list[dict]:
+        return [{"id": r["id"], "label": f"{r['sheet_contract_id']} · {' / '.join(json.loads(r['names'] or '[]'))}"}
+                for r in conn.execute("SELECT id, sheet_contract_id, names FROM contracts ORDER BY month DESC, sheet_contract_id")]
+
+    @app.get("/manage/channels", response_class=HTMLResponse)
+    async def channels_list(request: Request, q: str = "", kind: str = "", dead: str = "", _=Depends(auth)):
+        rows = _channel_rows(db(), q.strip(), kind if kind in CHANNEL_KINDS else "", dead == "1")
+        return render(request, "manage/channels.html", "channels", rows=rows, q=q, kind=kind, dead=dead == "1", kinds=CHANNEL_KINDS)
+
+    @app.get("/manage/channels/new", response_class=HTMLResponse)
+    async def channel_new(request: Request, contract_id: int | None = None, _=Depends(auth)):
+        return render(request, "manage/channel_form.html", "channels", mode="new", ch=None,
+                      values={"url": "", "title": "", "note": "", "contract_id": contract_id or ""}, errors={},
+                      contracts=_contract_options(db()), linked=[])
+
+    @app.post("/manage/channels/new")
+    async def channel_create(request: Request, _=Depends(auth)):
+        form = await request.form()
+        require_form_post(request, form.get("csrf"))
+        lang = lang_of(request)
+        values = {k: (form.get(k) or "").strip() for k in ("url", "title", "note", "contract_id")}
+        info = classify_url(values["url"])
+        if not channel_key_for(info):
+            return render(request, "manage/channel_form.html", "channels", mode="new", ch=None, values=values,
+                          errors={"url": "mg.bad_link"}, contracts=_contract_options(db()), linked=[])
+        conn = db()
+        chid, created = ensure_channel(conn, info, values["title"] or None, settings.dash_user)
+        if values["note"]:
+            conn.execute("UPDATE channels SET note=?, manual_locked=1 WHERE id=?", (values["note"], chid))
+        if values["contract_id"].isdigit() and one(conn, "SELECT 1 FROM contracts WHERE id=?", (int(values["contract_id"]),)):
+            cid = int(values["contract_id"])
+            pos = one(conn, "SELECT COALESCE(MAX(position),-1)+1 AS p FROM contract_channels WHERE contract_id=?", (cid,))["p"]
+            conn.execute("INSERT OR IGNORE INTO contract_channels(contract_id, channel_id, position) VALUES(?,?,?)", (cid, chid, pos))
+            conn.execute("UPDATE contracts SET manual_locked=1, updated_at=? WHERE id=?", (now_utc(), cid))
+        conn.commit()
+        return _redirect(f"/manage/channels/{chid}/edit", _t(lang, "mg.channel_added" if created else "mg.channel_attached"))
+
+    @app.get("/manage/channels/{channel_id}/edit", response_class=HTMLResponse)
+    async def channel_edit(request: Request, channel_id: int, _=Depends(auth)):
+        ch = _load_channel(channel_id)
+        conn = db()
+        linked = [dict(r) for r in conn.execute(
+            "SELECT c.id, c.sheet_contract_id, c.names FROM contracts c JOIN contract_channels cc ON cc.contract_id=c.id WHERE cc.channel_id=?", (channel_id,))]
+        for l in linked:
+            l["names_list"] = json.loads(l["names"] or "[]")
+        return render(request, "manage/channel_form.html", "channels", mode="edit", ch=ch,
+                      values={"url": ch["url"] or "", "title": ch["title"] or "", "note": ch["note"] or "", "contract_id": ""}, errors={},
+                      contracts=_contract_options(conn), linked=linked)
+
+    @app.post("/manage/channels/{channel_id}/edit")
+    async def channel_update(request: Request, channel_id: int, _=Depends(auth)):
+        ch = _load_channel(channel_id)
+        form = await request.form()
+        require_form_post(request, form.get("csrf"))
+        lang = lang_of(request)
+        values = {k: (form.get(k) or "").strip() for k in ("url", "title", "note", "contract_id")}
+        conn = db()
+        info = classify_url(values["url"])
+        new_key = channel_key_for(info)
+        errors = {}
+        if not new_key:
+            errors["url"] = "mg.bad_link"
+        elif new_key != ch["channel_key"] and one(conn, "SELECT 1 FROM channels WHERE channel_key=?", (new_key,)):
+            errors["url"] = "mg.link_taken"
+        if errors:
+            linked = [dict(r) for r in conn.execute(
+                "SELECT c.id, c.sheet_contract_id, c.names FROM contracts c JOIN contract_channels cc ON cc.contract_id=c.id WHERE cc.channel_id=?", (channel_id,))]
+            for l in linked:
+                l["names_list"] = json.loads(l["names"] or "[]")
+            return render(request, "manage/channel_form.html", "channels", mode="edit", ch=ch, values=values, errors=errors,
+                          contracts=_contract_options(conn), linked=linked)
+        now = now_utc()
+        if new_key != ch["channel_key"]:
+            # the link moved: remember the old one, and start history afresh (message ids belong to the old channel)
+            kind, collector = ("private", "invite") if info["kind"] == "private" else ("public_preview", "preview")
+            conn.execute("INSERT INTO channel_aliases(channel_id, contract_id, old_title, old_url, old_channel_key, seen_at, source) VALUES(?,?,?,?,?,?,?)",
+                         (channel_id, None, ch["title_observed"] or ch["title"], ch["url"], ch["channel_key"], now, "manual"))
+            conn.execute("""UPDATE channels SET channel_key=?, kind=?, collector=?, username=?, invite_hash=?, tg_peer_id=NULL, title_observed=NULL,
+                               joined=0, join_requested_at=NULL, dead_misses=0, dead_at=NULL, last_message_id=NULL, last_checked=NULL, last_error=NULL
+                            WHERE id=?""", (new_key, kind, collector, info.get("username"), info.get("invite_hash"), channel_id))
+        conn.execute("UPDATE channels SET title=?, note=?, manual_locked=1, updated_at=? WHERE id=?",
+                     (values["title"] or None, values["note"] or None, now, channel_id))
+        if values["contract_id"].isdigit() and one(conn, "SELECT 1 FROM contracts WHERE id=?", (int(values["contract_id"]),)):
+            cid = int(values["contract_id"])
+            pos = one(conn, "SELECT COALESCE(MAX(position),-1)+1 AS p FROM contract_channels WHERE contract_id=?", (cid,))["p"]
+            conn.execute("INSERT OR IGNORE INTO contract_channels(contract_id, channel_id, position) VALUES(?,?,?)", (cid, channel_id, pos))
+        conn.commit()
+        log_admin(conn, settings.dash_user, "channel.update", new_key, {"from": ch["channel_key"], "title": values["title"], "note": values["note"]})
+        return _redirect(f"/manage/channels/{channel_id}/edit", _t(lang, "mg.saved"))
+
+    @app.post("/manage/channels/{channel_id}/revive")
+    async def channel_revive(request: Request, channel_id: int, _=Depends(auth)):
+        ch = _load_channel(channel_id)
+        form = await request.form()
+        require_form_post(request, form.get("csrf"))
+        conn = db()
+        conn.execute("UPDATE channels SET dead_at=NULL, dead_misses=0, last_error=NULL, updated_at=? WHERE id=?", (now_utc(), channel_id))
+        conn.commit()
+        log_admin(conn, settings.dash_user, "channel.revive", ch["channel_key"])
+        return _redirect(f"/manage/channels/{channel_id}/edit", _t(lang_of(request), "mg.revived"))
 
     @app.post("/manage/contracts/{contract_id}/channels/{channel_id}/detach")
     async def contract_detach_channel(request: Request, contract_id: int, channel_id: int, _=Depends(auth)):

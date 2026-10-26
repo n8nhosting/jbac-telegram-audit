@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set page_icon = "📡" %}{% set page_title = t('nav.channels') %}
+{% block title %}{{ t('nav.channels') }} — Platinum audit{% endblock %}
+{% block body %}
+<div class="toolbar">
+  <form method="get" class="daynav" role="search">
+    <input type="search" name="q" value="{{ q }}" placeholder="{{ t('mg.search_channels') }}" aria-label="{{ t('mg.search_channels') }}">
+    <select name="kind" aria-label="{{ t('mg.kind') }}">
+      <option value="">{{ t('mg.all_kinds') }}</option>
+      {% for k in kinds %}<option value="{{ k }}" {% if kind == k %}selected{% endif %}>{{ t('ck.' ~ k) }}</option>{% endfor %}
+    </select>
+    <label class="field"><input type="checkbox" name="dead" value="1" {% if dead %}checked{% endif %}> {{ t('mg.dead_only') }}</label>
+    <button class="btn" type="submit">{{ t('mg.filter') }}</button>
+  </form>
+  <a class="btn btn-pri" href="/manage/channels/new">+ {{ t('mg.new_channel') }}</a>
+</div>
+
+<div class="panel">
+  <div class="phead"><h2>{{ t('nav.channels') }}</h2><span class="spacer"></span><span class="muted small">{{ t('mg.count', n=rows|length) }}</span></div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>{{ t('c.channel') }}</th><th>{{ t('mg.kind') }}</th><th>{{ t('mg.collector') }}</th><th class="num">{{ t('c.subscribers') }}</th>
+      <th>{{ t('mg.linked_contracts') }}</th><th>{{ t('c.last_checked') }}</th><th>{{ t('mg.state') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for ch in rows %}
+    <tr>
+      <td>{% if ch.url %}<a class="nm" href="{{ ch.url }}" target="_blank" rel="noopener">{{ ch.title_observed or ch.title or ch.channel_key }}</a>{% else %}<span class="nm">{{ ch.title or ch.channel_key }}</span>{% endif %}
+        <div class="sub mono">{{ ch.channel_key }}</div>{% if ch.note %}<div class="note">{{ ch.note }}</div>{% endif %}</td>
+      <td>{{ t('ck.' ~ ch.kind) }}{% if ch.manual_locked %} <span class="tag info" title="{{ t('mg.locked_hint') }}">🔒</span>{% endif %}</td>
+      <td class="small">{{ t('cl.' ~ ch.collector) }}</td>
+      <td class="num">{{ "{:,}".format(ch.subscribers) if ch.subscribers else "—" }}</td>
+      <td class="small mono">{{ ch.contracts_txt or "—" }}</td>
+      <td class="mono small">{{ (ch.last_checked or "—")[:16]|replace("T", " ") }}</td>
+      <td>{% if ch.dead_at %}{{ m.pill('dead', t('c.dead_since', d=ch.dead_at[:10])) }}{% elif ch.last_error %}{{ m.pill('invalid', ch.last_error[:40]) }}{% elif ch.last_checked %}{{ m.pill('ok', t('mg.alive')) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td><a class="btn btn-sm" href="/manage/channels/{{ ch.id }}/edit">✎ {{ t('mg.edit') }}</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="muted">{{ t('mg.none') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}
