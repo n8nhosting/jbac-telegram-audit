@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m %}
 {% set name = c.names_list|join(" / ") or c.sheet_contract_id %}
+{% set page_icon = "📋" %}{% set page_title = name %}
 {% block title %}{{ name }} — Platinum audit{% endblock %}
 {% block body %}
 <p class="crumbs"><a href="/?date={{ day }}">{{ t('nav.back') }}</a></p>
@@ -52,7 +53,7 @@
 </div>
 
 <h2 class="sec">{{ t('c.evidence_title', n=c.posts|length) }}</h2>
-<div class="tablebox"><div class="scroll">
+<div class="panel"><div class="scroll">
 <table class="ledger"><thead><tr><th>{{ t('c.day', tz=tz) }}</th><th>{{ t('c.time_local', tz=tz) }}</th><th>{{ t('c.channel') }}</th><th>{{ t('c.passed') }}</th><th>{{ t('c.media_link') }}</th><th>{{ t('th.pin') }}</th><th class="num">{{ t('c.views') }}</th><th>{{ t('c.text') }}</th><th>{{ t('c.link') }}</th></tr></thead>
 <tbody>
 {% for p in c.posts %}

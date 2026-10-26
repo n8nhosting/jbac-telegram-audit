@@ -23,7 +23,8 @@ TZ = ZoneInfo("Asia/Yangon")
 AFTER = dt.datetime(2026, 10, 26, 0, 10, tzinfo=TZ)
 POST = {"post_id": 1, "permalink": "https://t.me/ChanA/1", "datetime": "2026-10-25T10:00:00+00:00", "views": 5,
         "text": "โปร #platinumclubmm", "has_target_hashtag": True, "has_media": True, "has_link": False, "has_sticker": False}
-RAW_KEY = re.compile(r"\b(?:row|kpi|hero|group|nav|th|c|meta|status|pin)\.[a-z_]+\b")
+# an untranslated key shows up as bare text like "row.view"; CSS selectors such as ".kpi.ok" are excluded by the lookbehind
+RAW_KEY = re.compile(r"(?<![.\w-])(?:row|kpi|hero|group|nav|th|c|meta|status|pin|empty|footer)\.[a-z_]+\b")
 
 
 def _client(conn=None):

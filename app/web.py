@@ -24,6 +24,7 @@ from .alerts import build_summary
 from .collector import run_public_collector
 from .db import connect, migrate
 from .i18n import LANGS, LANG_NAMES, STRINGS, pin_label, resolve_lang, status_label, t as _t
+from .forms import csrf_token, ensure_csrf_cookie, pop_flash
 from .importer import import_seed
 from .rollup import rollup_date
 from .rules import now_local
@@ -107,6 +108,9 @@ def switch_urls(request: Request) -> dict[str, str]:
 def _remember_lang(resp, request: Request, lang: str):
     if request.query_params.get("lang"):
         resp.set_cookie("lang", lang, max_age=365 * 24 * 3600, samesite="lax")
+    ensure_csrf_cookie(resp, request)
+    if request.cookies.get("flash"):
+        resp.delete_cookie("flash")
     return resp
 
 
@@ -248,10 +252,19 @@ def create_app(settings, conn: sqlite3.Connection | None = None, start_scheduler
         return {"ok": True, "contracts": conn.execute("SELECT COUNT(*) FROM contracts").fetchone()[0],
                 "last_runs": last, "mtproto": settings.mtproto_enabled, "alerts": settings.alerts_enabled, "tz": settings.tz}
 
-    def page_context(request: Request, lang: str) -> dict:
+    def page_context(request: Request, lang: str, nav: str = "dashboard") -> dict:
+        last = db().execute("SELECT MAX(finished_at) FROM runs WHERE kind='collector'").fetchone()[0]
+        fresh = False
+        if last:
+            try:
+                fresh = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(last)).total_seconds() < 2 * 3600
+            except ValueError:
+                fresh = False
         return {"lang": lang, "lang_names": LANG_NAMES, "langs": LANGS, "switch": switch_urls(request),
                 "t": lambda key, **kw: _t(lang, key, **kw), "sl": lambda s: status_label(lang, s),
-                "status_keys": STATUS_KEYS, "tz": settings.tz}
+                "status_keys": STATUS_KEYS, "tz": settings.tz, "nav": nav, "who": settings.dash_user,
+                "hashtag": settings.hashtag, "collector_fresh": fresh, "flash": pop_flash(request),
+                "csrf": csrf_token(request)}
 
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request, date: str | None = None, status: str | None = None, _=Depends(auth)):
@@ -273,8 +286,11 @@ def create_app(settings, conn: sqlite3.Connection | None = None, start_scheduler
             cutoff_text = _t(lang, "hero.cutoff_future")
         n_contracts = conn.execute("SELECT COUNT(*) FROM contracts").fetchone()[0]
         last_collect = conn.execute("SELECT MAX(finished_at) FROM runs WHERE kind='collector'").fetchone()[0]
+        fee_total = conn.execute("SELECT COALESCE(SUM(amount_mmk),0) FROM contracts WHERE month=? AND status IN ('active','paused')",
+                                 (day[:7],)).fetchone()[0]
         ctx = page_context(request, lang)
         ctx.update({
+            "fee_total": fee_total,
             "day": day, "prev_day": (dt.date.fromisoformat(day) - dt.timedelta(days=1)).isoformat(),
             "next_day": (dt.date.fromisoformat(day) + dt.timedelta(days=1)).isoformat(), "today": today(),
             "rows": rows, "summary": summary, "counts": counts, "status": status or "",
@@ -374,6 +390,11 @@ def create_app(settings, conn: sqlite3.Connection | None = None, start_scheduler
             st = await run_mtproto_collector(conn, settings)
             return st
         raise HTTPException(status_code=404, detail="unknown job")
+
+    @app.get("/logout")
+    async def logout():
+        # HTTP Basic has no session: answering 401 makes the browser drop the cached credentials
+        return Response(status_code=401, content="logged out", headers={"WWW-Authenticate": 'Basic realm="audit-logout"'})
 
     @app.get("/favicon.ico")
     async def favicon():

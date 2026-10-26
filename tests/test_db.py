@@ -20,7 +20,8 @@ class TestDb(unittest.TestCase):
         migrate(conn)
         migrate(conn)
         rows = conn.execute("SELECT name FROM schema_migrations ORDER BY name").fetchall()
-        self.assertEqual([r["name"] for r in rows], ["0001_init.sql"])
+        self.assertEqual([r["name"] for r in rows], ["0001_init.sql", "0002_manage.sql"])
+        self.assertEqual(migrate(conn), [])                                   # nothing left to apply
 
     def test_channels_unique_key_and_collector_check(self):
         conn = connect(":memory:")

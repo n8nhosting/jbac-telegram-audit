@@ -101,7 +101,8 @@ def import_seed(conn: sqlite3.Connection, seed: dict, probe: dict | None = None)
                        quota_type=excluded.quota_type, quota_posts_per_day=excluded.quota_posts_per_day,
                        pin_rule=excluded.pin_rule, amount_mmk=excluded.amount_mmk, period_from=excluded.period_from,
                        period_to=excluded.period_to, names=excluded.names, admin_accounts=excluded.admin_accounts,
-                       remark_raw=excluded.remark_raw, updated_at=excluded.updated_at""",
+                       remark_raw=excluded.remark_raw, updated_at=excluded.updated_at
+                   WHERE contracts.manual_locked=0""",
                 (c["contract_id"], c["month"], c.get("section"), c.get("exclusivity"), c.get("quota_type") or "unknown",
                  c.get("quota_posts_per_day"), c.get("pin_rule") or "none", _num(c.get("amount_mmk")),
                  c.get("period_from"), c.get("period_to"), json.dumps(c.get("names") or [], ensure_ascii=False),
@@ -131,7 +132,8 @@ def import_seed(conn: sqlite3.Connection, seed: dict, probe: dict | None = None)
                            username=excluded.username, invite_hash=excluded.invite_hash,
                            title=COALESCE(channels.title, excluded.title),
                            subscribers=COALESCE(channels.subscribers, excluded.subscribers),
-                           updated_at=excluded.updated_at""",
+                           updated_at=excluded.updated_at
+                       WHERE channels.manual_locked=0""",
                     (key, kind, (l.get("username") or None) and l["username"].lower(), l.get("invite_hash"), title,
                      sheet_subs, collector, now, now))
                 chid = conn.execute("SELECT id FROM channels WHERE channel_key=?", (key,)).fetchone()[0]

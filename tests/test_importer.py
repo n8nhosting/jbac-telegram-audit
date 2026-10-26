@@ -61,6 +61,26 @@ class TestImporter(unittest.TestCase):
         c = one(self.conn, "SELECT kind, collector FROM channels WHERE channel_key='pub:chanc'")
         self.assertEqual((c["kind"], c["collector"]), ("not_channel", "none"))
 
+    def test_reimport_leaves_manually_locked_contract_alone(self):
+        import_seed(self.conn, SEED)
+        self.conn.execute("UPDATE contracts SET amount_mmk=999, quota_posts_per_day=5, manual_locked=1 WHERE sheet_contract_id='2026-10-r005'")
+        self.conn.execute("UPDATE contracts SET amount_mmk=111 WHERE sheet_contract_id='2026-10-r006'")
+        self.conn.commit()
+        import_seed(self.conn, SEED)
+        locked = one(self.conn, "SELECT amount_mmk, quota_posts_per_day FROM contracts WHERE sheet_contract_id='2026-10-r005'")
+        free = one(self.conn, "SELECT amount_mmk FROM contracts WHERE sheet_contract_id='2026-10-r006'")
+        self.assertEqual((locked["amount_mmk"], locked["quota_posts_per_day"]), (999, 5))
+        self.assertNotEqual(free["amount_mmk"], 111)                      # unlocked rows still follow the sheet
+        self.assertEqual(one(self.conn, "SELECT COUNT(*) AS n FROM contract_channels")["n"], 3)   # links still attached
+
+    def test_reimport_leaves_manually_locked_channel_alone(self):
+        import_seed(self.conn, SEED)
+        self.conn.execute("UPDATE channels SET title='Renamed by hand', manual_locked=1 WHERE channel_key='pub:chana'")
+        self.conn.commit()
+        import_seed(self.conn, SEED, {"channels": [{"username": "chana", "readable": False, "profile_kind": "channel_no_preview"}]})
+        ch = one(self.conn, "SELECT title, kind, collector FROM channels WHERE channel_key='pub:chana'")
+        self.assertEqual((ch["title"], ch["kind"], ch["collector"]), ("Renamed by hand", "public_preview", "preview"))
+
 
 if __name__ == "__main__":
     unittest.main()

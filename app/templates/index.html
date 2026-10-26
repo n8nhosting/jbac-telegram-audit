@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m %}
+{% set page_icon = "📊" %}{% set page_title = t('nav.dashboard') ~ " · " ~ day %}
 {% block title %}Platinum audit — {{ day }}{% endblock %}
 {% block meta %}{{ t('meta.contracts', n=n_contracts) }} · {{ t('meta.last_collect', t=(last_collect or t('meta.never'))) }} · {{ t('meta.hashtag') }} <code>{{ hashtag }}</code>{% if not mtproto %} · {{ t('meta.mtproto_off') }}{% endif %}{% endblock %}
 {% block body %}
@@ -13,33 +14,38 @@
         <option value="" {% if not status %}selected{% endif %}>{{ t('nav.all_status') }}</option>
         {% for k in status_keys %}<option value="{{ k }}" {% if status==k %}selected{% endif %}>{{ sl(k) }}</option>{% endfor %}
       </select></label>
-    <button class="btn primary" type="submit">{{ t('nav.view') }}</button>
-    {% if day != today %}<a class="btn ghost" href="/">{{ t('nav.today') }}</a>{% endif %}
+    <button class="btn btn-pri" type="submit">{{ t('nav.view') }}</button>
+    {% if day != today %}<a class="btn" href="/">{{ t('nav.today') }}</a>{% endif %}
   </form>
-  <div class="exports"><a href="/export.csv?from={{ day }}&to={{ day }}">{{ t('nav.csv') }}</a><a href="/api/summary?date={{ day }}">JSON</a></div>
+  <div class="exports"><a class="btn" href="/export.csv?from={{ day }}&to={{ day }}">⬇ {{ t('nav.csv') }}</a><a class="btn" href="/api/summary?date={{ day }}">JSON</a></div>
 </nav>
 
 {% if n_contracts == 0 %}
 <div class="empty">{{ t('empty.no_data') }}</div>
 {% else %}
-<section class="hero" aria-label="{{ t('hero.bar_label') }}">
-  <div>
-    <div class="big {% if n_action %}bad{% endif %}">{{ n_action }}</div>
-    <div class="lbl">{{ t('hero.needs_action') }}</div>
-    <div class="sub">{{ t('hero.of_total', n=summary.total) }}</div>
-  </div>
-  <div>
+<section class="kpis" aria-label="{{ t('hero.bar_label') }}">
+  <a class="kpi bad{% if status == 'action' %} sel{% endif %}" href="/?date={{ day }}&status=action"><div class="lb">{{ t('hero.needs_action') }}</div><div class="v">{{ n_action }}</div></a>
+  <a class="kpi ok{% if status == 'ok' %} sel{% endif %}" href="/?date={{ day }}&status=ok"><div class="lb">{{ t('kpi.ok') }}</div><div class="v">{{ counts.ok }}</div></a>
+  <a class="kpi warn{% if status == 'waiting' %} sel{% endif %}" href="/?date={{ day }}&status=waiting"><div class="lb">{{ t('kpi.waiting') }}</div><div class="v">{{ counts.waiting }}</div></a>
+  <a class="kpi unv{% if status == 'unverifiable' %} sel{% endif %}" href="/?date={{ day }}&status=unverifiable"><div class="lb">{{ t('kpi.unverifiable') }}</div><div class="v">{{ counts.unverifiable }}</div></a>
+  <a class="kpi info{% if not status %} sel{% endif %}" href="/?date={{ day }}"><div class="lb">{{ t('kpi.total') }}</div><div class="v">{{ summary.total }}</div></a>
+  <div class="kpi pink"><div class="lb">{{ t('kpi.posts', d=day) }}</div><div class="v">{{ summary.posts }}</div></div>
+  <div class="kpi orange"><div class="lb">{{ t('kpi.fee_month') }}</div><div class="v">{{ "{:,}".format(fee_total or 0) }}<small>MMK</small></div></div>
+</section>
+
+<section class="hero panel" aria-label="{{ t('hero.bar_label') }}">
+  <div class="phead"><h2>{{ t('hero.bar_label') }}</h2><span class="spacer"></span><span class="cutoff {{ cutoff.state }}">{{ cutoff_text }}</span></div>
+  <div class="pbody">
     <div class="bar" role="img" aria-label="{{ t('hero.bar_label') }}: {% for b in bands %}{{ b.label }} {{ b.count }}{% if not loop.last %}, {% endif %}{% endfor %}">
       {% for b in bands %}{% if b.count %}<a class="seg {{ b.key }}" style="flex-grow:{{ b.count }}" href="/?date={{ day }}&status={{ b.key }}" title="{{ b.label }} · {{ b.count }}" aria-label="{{ b.label }} {{ b.count }}"></a>{% endif %}{% endfor %}
     </div>
     <ul class="legend">
       {% for s in status_list %}<li><a class="chip {{ s.key }}{% if status==s.key %} on{% endif %}{% if not s.count %} zero{% endif %}" href="/?date={{ day }}&status={{ s.key }}">{{ m.glyph(s.key) }}<span class="n">{{ s.count }}</span><span>{{ s.label }}</span></a></li>{% endfor %}
     </ul>
-    <p class="cutoff {{ cutoff.state }}">{{ cutoff_text }} · {{ t('hero.posts', n=summary.posts) }}</p>
   </div>
 </section>
 
-<div class="tablebox"><div class="scroll">
+<div class="panel"><div class="scroll">
 <table class="ledger">
 <thead><tr>
   <th>{{ t('th.status') }}</th><th>{{ t('th.channel_contract') }}</th><th>{{ t('th.terms') }}</th><th class="num">{{ t('th.passed_required') }}</th><th>{{ t('th.pin') }}</th>
@@ -59,7 +65,7 @@
   <td class="num" data-l="{{ t('th.passed_required') }}">{% if r.required is not none %}<span class="frac"><b>{{ r.qualified }}</b><span class="sl">/</span>{{ r.required }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
   <td data-l="{{ t('th.pin') }}">{{ m.yesno(r.pin_ok, t('c.passed'), t('c.not_passed')) }}</td>
   <td class="num" data-l="{{ t('th.missed_30d') }}">{{ r.missed_30d }}</td>
-  <td data-l="{{ t('th.last_post', tz=tz) }}">{% if r.last_post_local %}{{ r.last_post_local }}{% else %}<span class="muted">—</span>{% endif %}</td>
+  <td data-l="{{ t('th.last_post', tz=tz) }}">{% if r.last_post_local %}<span class="mono">{{ r.last_post_local }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
   <td class="num" data-l="{{ t('th.fee') }}">{{ "{:,}".format(r.amount_mmk) if r.amount_mmk else "—" }}</td>
   <td class="num" data-l="{{ t('th.last_reg') }}">{{ r.last_reg if r.last_reg is not none else "—" }}</td>
   <td class="ev"><a class="evi" href="/contracts/{{ r.id }}?date={{ day }}">{{ t('row.view') }}{{ m.glyph('next') }}</a></td>
