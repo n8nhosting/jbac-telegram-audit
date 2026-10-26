@@ -135,6 +135,17 @@ def _error(conn, ch, error: str | None, stats: RunStats, now: str):
     conn.execute("UPDATE channels SET last_error=?, last_checked=? WHERE id=?", ((error or "fetch failed")[:300], now, ch["id"]))
 
 
+def _record_failure(conn, ch, exc: BaseException, stats: RunStats, log):
+    """Mark the channel as failed and commit; if even that cannot be written (another job holds the SQLite write
+    lock, "database is locked"), drop this channel's partial writes and carry on with the run."""
+    try:
+        _error(conn, ch, f"{type(exc).__name__}: {exc}", stats, now_utc())
+        conn.commit()
+    except sqlite3.Error as e2:
+        conn.rollback()
+        log(f"{ch['channel_key']}: could not record failure ({e2}); skipped this run")
+
+
 def _apply_profile(conn, ch, prof: dict, stats: RunStats, now: str) -> str:
     """Profile/redirect page → snapshot + kind/collector; returns the profile kind."""
     kind = prof["kind"]
@@ -229,9 +240,9 @@ async def run_public_collector(conn: sqlite3.Connection, settings, client=None, 
                 stats.channels += 1
                 try:
                     await _collect_channel(conn, ch, settings, client, stats, sleep)
+                    conn.commit()
                 except Exception as e:  # never let one channel stop the run
-                    _error(conn, ch, f"{type(e).__name__}: {e}", stats, now_utc())
-                conn.commit()
+                    _record_failure(conn, ch, e, stats, log)
                 log(f"[{i + 1}/{len(chans)}] {ch['channel_key']} new={stats.posts_new} upd={stats.posts_updated} err={stats.errors}")
                 if i < len(chans) - 1:
                     await sleep(random.uniform(settings.fetch_delay_min, settings.fetch_delay_max))

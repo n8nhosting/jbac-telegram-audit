@@ -136,6 +136,37 @@ class TestCollector(unittest.IsolatedAsyncioTestCase):
         run = one(self.conn, "SELECT * FROM runs WHERE kind='collector' ORDER BY id DESC LIMIT 1")
         self.assertEqual(run["ok"], 1)
 
+    async def test_locked_database_on_one_channel_does_not_abort_the_run(self):
+        """Another job (MTProto collector, rollup) may hold the write lock for a moment: that channel is skipped
+        with an error, the run goes on, and the run record is still written."""
+        with tempfile.TemporaryDirectory() as d:
+            path = str(pathlib.Path(d) / "audit.db")
+            conn = connect(path)
+            conn.execute("PRAGMA busy_timeout=50")
+            migrate(conn)
+            import_seed(conn, SEED)
+            other = connect(path)
+            calls = []
+
+            async def sleep(_):            # between channel 1 and 2: take the lock; between 2 and 3: release it
+                calls.append(1)
+                if len(calls) == 1:
+                    other.execute("BEGIN IMMEDIATE")
+                elif len(calls) == 2:
+                    other.commit()
+
+            try:
+                st = await run_public_collector(conn, S, client=FakeClient(routes_default()), sleep=sleep)
+                self.assertEqual(st.channels, 3)
+                self.assertGreaterEqual(st.errors, 1)
+                # channel 2 (prv:AAAA1111) met the lock and was skipped; channel 3 ran after the lock was released
+                self.assertIsNone(one(conn, "SELECT last_checked FROM channels WHERE channel_key='prv:AAAA1111'")["last_checked"])
+                self.assertIsNotNone(one(conn, "SELECT last_checked FROM channels WHERE channel_key='pub:chanc'")["last_checked"])
+                self.assertEqual(one(conn, "SELECT COUNT(*) AS n FROM runs WHERE kind='collector'")["n"], 1)
+            finally:
+                other.close()
+                conn.close()
+
     async def test_missing_username_marks_dead_only_after_consecutive_misses(self):
         routes = routes_default()
         gone = '<div class="tgme_page_description">If you have Telegram, you can contact <a>@chanc</a> right away.</div>'

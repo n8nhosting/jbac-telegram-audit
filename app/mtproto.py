@@ -3,6 +3,10 @@
 Enabled only when TG_API_ID, TG_API_HASH and TG_SESSION are set. The account joins a private channel at most once
 (≤ settings.max_joins_per_run joins per run), never posts, respects FLOOD_WAIT, and reads public channels without joining.
 `channels.joined = 1` means "this account can read the channel's history".
+
+Rule for every write here: commit before the next await. The public collector, the rollup job and the web app share
+the SQLite file, and Telethon may sleep a flood wait inside a request — a transaction left open across that await
+makes them fail with "database is locked".
 """
 from __future__ import annotations
 
@@ -56,6 +60,7 @@ def message_to_post(msg, hashtag: str, peer_id: int | None = None, username: str
 
 
 JOIN_RETRY_DAYS = 7
+FLOOD_WAIT_MAX_SLEEP = 600      # seconds: sleep through a FLOOD_WAIT up to this long, abandon the run beyond it
 
 
 def should_attempt_join(ch, now: dt.datetime | None = None, days: int = JOIN_RETRY_DAYS) -> bool:
@@ -76,6 +81,7 @@ def should_attempt_join(ch, now: dt.datetime | None = None, days: int = JOIN_RET
 def _mark_joined(conn, ch, peer_id: int | None, note: str):
     conn.execute("UPDATE channels SET joined=1, tg_peer_id=COALESCE(?, tg_peer_id), last_error=NULL WHERE id=?", (peer_id, ch["id"]))
     conn.execute("INSERT INTO channel_events(channel_id, event, happened_at, note) VALUES(?,?,?,?)", (ch["id"], "joined", now_utc(), note))
+    conn.commit()
 
 
 async def _resolve_entity(client, conn, ch, settings, joins_used: int, stats: RunStats):
@@ -102,6 +108,7 @@ async def _resolve_entity(client, conn, ch, settings, joins_used: int, stats: Ru
         title = getattr(res, "title", None)
         count = getattr(res, "participants_count", None)
         _snapshot(conn, ch, count, title, "mtproto_invite", stats, now_utc())
+        conn.commit()
         if not should_attempt_join(ch):
             conn.execute("UPDATE channels SET last_checked=? WHERE id=?", (now_utc(), ch["id"]))
             return None, False
@@ -164,8 +171,9 @@ async def _collect_entity(client, conn, ch, entity, settings, stats: RunStats):
     conn.commit()
 
 
-async def run_mtproto_collector(conn: sqlite3.Connection, settings, log=None, client_factory=None) -> dict:
+async def run_mtproto_collector(conn: sqlite3.Connection, settings, log=None, client_factory=None, sleep=None) -> dict:
     log = log or (lambda s: None)
+    sleep = sleep or asyncio.sleep
     if not settings.mtproto_enabled:
         return {"skipped": "mtproto not configured"}
     from telethon import TelegramClient, errors
@@ -193,7 +201,8 @@ async def run_mtproto_collector(conn: sqlite3.Connection, settings, log=None, cl
         # a channel the account already reads (joined=1) keeps being read even if the invite page went dark
         chans = conn.execute(
             "SELECT * FROM channels WHERE kind IN ('private','public_no_preview','group','unknown') "
-            "AND collector IN ('invite','profile','mtproto') AND (dead_at IS NULL OR joined=1) ORDER BY joined DESC, id").fetchall()
+            "AND collector IN ('invite','profile','mtproto') AND (dead_at IS NULL OR joined=1) "
+            "ORDER BY last_checked IS NOT NULL, last_checked, id").fetchall()     # never checked, then oldest first
         for i, ch in enumerate(chans):
             stats.channels += 1
             try:
@@ -206,8 +215,9 @@ async def run_mtproto_collector(conn: sqlite3.Connection, settings, log=None, cl
                 flood_waits += 1
                 conn.execute("UPDATE channels SET last_error=?, last_checked=? WHERE id=?", (f"FLOOD_WAIT {e.seconds}s", now_utc(), ch["id"]))
                 conn.commit()
-                if e.seconds <= 120:
-                    await asyncio.sleep(e.seconds + 1)
+                if e.seconds <= FLOOD_WAIT_MAX_SLEEP:
+                    log(f"flood wait {e.seconds}s — sleeping, then continuing")
+                    await sleep(e.seconds + 1)
                     continue
                 log(f"flood wait {e.seconds}s — stopping this run")
                 break
@@ -217,7 +227,7 @@ async def run_mtproto_collector(conn: sqlite3.Connection, settings, log=None, cl
             conn.commit()
             log(f"[mtproto {i + 1}/{len(chans)}] {ch['channel_key']} new={stats.posts_new} upd={stats.posts_updated} joins={joins} err={stats.errors}")
             if i < len(chans) - 1:
-                await asyncio.sleep(random.uniform(1.0, 2.0))
+                await sleep(random.uniform(1.0, 2.0))
     finally:
         await client.disconnect()
     detail = {**stats.as_dict(), "joins": joins, "flood_waits": flood_waits}
