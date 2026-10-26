@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set page_icon = "📥" %}{% set page_title = t('nav.data') %}
+{% block title %}{{ t('nav.data') }} — Platinum audit{% endblock %}
+{% block body %}
+<div class="grid2">
+  <form method="post" action="/manage/data/import" enctype="multipart/form-data" class="panel" style="margin:0">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="phead"><h2>{{ t('dt.import_title') }}</h2></div>
+    <div class="pbody">
+      <div class="form">
+        <div class="f wide"><label for="seed">{{ t('dt.seed_file') }}</label><input id="seed" type="file" name="seed" accept=".json,application/json" required></div>
+        <div class="f wide"><label for="probe">{{ t('dt.probe_file') }}</label><input id="probe" type="file" name="probe" accept=".json,application/json"></div>
+      </div>
+      <div class="actions"><button class="btn btn-pri" type="submit">⬆ {{ t('dt.import_btn') }}</button></div>
+      <p class="hint">{{ t('dt.import_help') }}</p>
+    </div>
+  </form>
+
+  <form method="get" action="/export.csv" class="panel" style="margin:0">
+    <div class="phead"><h2>{{ t('dt.export_title') }}</h2></div>
+    <div class="pbody">
+      <div class="form">
+        <div class="f"><label for="from">{{ t('dt.from') }}</label><input id="from" type="date" name="from" value="{{ month_start }}"></div>
+        <div class="f"><label for="to">{{ t('dt.to') }}</label><input id="to" type="date" name="to" value="{{ today }}"></div>
+      </div>
+      <div class="actions"><button class="btn btn-pri" type="submit">⬇ {{ t('dt.export_btn') }}</button><span class="hint">{{ t('dt.export_help') }}</span></div>
+    </div>
+  </form>
+</div>
+
+<div class="panel" style="margin-top:14px">
+  <div class="phead"><h2>{{ t('dt.run_title') }}</h2>{% if collector_running %}<span class="tag warn">{{ t('dt.collector_running') }}</span>{% endif %}</div>
+  <div class="pbody">
+    <div class="actions">
+      <form method="post" action="/manage/data/run/collector" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit" {% if collector_running %}disabled{% endif %}>📡 {{ t('dt.run_collector') }}</button></form>
+      <form method="post" action="/manage/data/run/rollup" class="inline field"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="date" name="date" value="{{ today }}" aria-label="{{ t('nav.date') }}"><button class="btn" type="submit">🧮 {{ t('dt.run_rollup') }}</button></form>
+      {% if mtproto %}<form method="post" action="/manage/data/run/mtproto" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">🔐 {{ t('dt.run_mtproto') }}</button></form>{% endif %}
+    </div>
+    <p class="hint">{{ t('dt.run_help') }}</p>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="phead"><h2>{{ t('dt.runs_title') }}</h2></div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>{{ t('dt.kind') }}</th><th>{{ t('dt.started') }}</th><th>{{ t('dt.finished') }}</th><th>{{ t('dt.result') }}</th></tr></thead>
+    <tbody>
+    {% for r in runs %}
+    <tr><td><span class="tag {{ 'ok' if r.ok else 'bad' }}">{{ r.kind }}</span></td><td class="mono small">{{ (r.started_at or "")[:16]|replace("T"," ") }}</td><td class="mono small">{{ (r.finished_at or "—")[:16]|replace("T"," ") }}</td><td class="small mono" style="overflow-wrap:anywhere">{{ (r.detail or "")[:200] }}</td></tr>
+    {% else %}
+    <tr><td colspan="4" class="muted">{{ t('mg.none') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

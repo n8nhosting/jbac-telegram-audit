@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set page_icon = "📅" %}{% set page_title = t('nav.reports') ~ " · " ~ month %}
+{% block title %}{{ t('nav.reports') }} {{ month }} — Platinum audit{% endblock %}
+{% block body %}
+<nav class="toolbar" aria-label="{{ t('rp.month') }}">
+  <form method="get" class="daynav">
+    <a class="btn icon" href="/reports/month?month={{ prev_month }}" aria-label="{{ t('nav.prev') }}">{{ m.glyph('prev') }}</a>
+    <label class="field"><span class="sr-only">{{ t('rp.month') }}</span><input type="month" name="month" value="{{ month }}"></label>
+    <a class="btn icon" href="/reports/month?month={{ next_month }}" aria-label="{{ t('nav.next') }}">{{ m.glyph('next') }}</a>
+    <button class="btn btn-pri" type="submit">{{ t('nav.view') }}</button>
+  </form>
+  <div class="exports"><a class="btn" href="/export.csv?from={{ day_from }}&to={{ day_to }}">⬇ {{ t('rp.csv_month') }}</a></div>
+</nav>
+
+<section class="kpis" aria-label="{{ t('rp.month') }}">
+  <div class="kpi info"><div class="lb">{{ t('rp.contracts') }}</div><div class="v">{{ summary.contracts }}</div></div>
+  <div class="kpi orange"><div class="lb">{{ t('rp.fee') }}</div><div class="v">{{ "{:,}".format(summary.fee_total) }}<small>MMK</small></div></div>
+  <div class="kpi pink"><div class="lb">{{ t('rp.reg') }}</div><div class="v">{{ summary.reg_total }}</div></div>
+  <div class="kpi unv"><div class="lb">{{ t('rp.channels') }}</div><div class="v">{{ summary.channels_public }}<small>{{ t('rp.pub') }}</small> {{ summary.channels_private }}<small>{{ t('rp.prv') }}</small></div></div>
+  <div class="kpi {{ 'ok' if summary.ok_rate is not none and summary.ok_rate >= 80 else ('warn' if summary.ok_rate is not none else 'unv') }}"><div class="lb">{{ t('rp.ok_rate') }}</div><div class="v">{% if summary.ok_rate is not none %}{{ summary.ok_rate }}<small>%</small>{% else %}—{% endif %}</div></div>
+  <div class="kpi bad"><div class="lb">{{ t('rp.action_days') }}</div><div class="v">{{ summary.action_days }}</div></div>
+  <div class="kpi info"><div class="lb">{{ t('rp.days_computed') }}</div><div class="v">{{ summary.days_computed }}<small>/ {{ days|length }}</small></div></div>
+</section>
+
+<div class="panel">
+  <div class="phead"><h2>{{ t('rp.grid_title') }}</h2><span class="spacer"></span><span class="hint">{{ t('rp.grid_hint') }}</span></div>
+  <div class="dcgwrap">
+  <table class="dcg">
+    <thead><tr><th class="site"></th>{% for d in days %}<th class="{% if d == today %}today{% endif %}" title="{{ d }}">{{ d[8:]|int }}</th>{% endfor %}<th class="tot">{{ t('rp.ok_days') }}</th><th class="tot">{{ t('rp.missed_days') }}</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td class="site"><a class="nm" href="/contracts/{{ r.id }}?date={{ day_from }}">{{ (r.names_list|join(" / ") or r.sheet_contract_id)[:38] }}</a><small>{{ r.sheet_contract_id }} · {{ "{:,}".format(r.amount_mmk) if r.amount_mmk else "—" }}</small></td>
+      {% for c in r.cells %}<td class="c {{ c.status or ('fut' if c.date > today else 'none') }}" data-day="{{ c.date }}"><a href="/contracts/{{ r.id }}?date={{ c.date }}" title="{{ c.date }}{% if c.status %} · {{ sl(c.status) }} {{ c.label }}{% endif %}" aria-label="{{ c.date }} {{ sl(c.status) if c.status else '' }}">{{ c.day }}</a></td>{% endfor %}
+      <td class="tot num">{{ r.ok }}</td><td class="tot num">{{ r.missed }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="{{ days|length + 3 }}" class="muted" style="text-align:left;padding:14px">{{ t('rp.no_rows') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="pbody legend-row">
+    {% for s in ('ok','missed','invalid','pin_missing','waiting','unverifiable','dead','paused','manual') %}<span class="chip {{ s }}">{{ m.glyph(s) }}<span>{{ sl(s) }}</span></span>{% endfor %}
+  </div>
+</div>
+{% endblock %}

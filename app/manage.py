@@ -7,18 +7,27 @@ Rows touched here get manual_locked=1 so a later sheet import does not overwrite
 """
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import json
+import logging
+import os
 import re
 import sqlite3
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from .db import now_utc, one
+from . import collector as _collector
+from .collector import run_public_collector
+from .db import connect, now_utc, one
 from .forms import log_admin, require_form_post, set_flash
 from .i18n import pin_label, t as _t
+from .importer import import_seed
 from .links import channel_key_for, classify_url
+from .reports import month_days, month_grid, month_summary
+from .rollup import rollup_date
+from .rules import now_local
 
 SECTIONS = ["only_us", "only_two", "only_three", "only_four", "only_five", "influencer", "unknown"]
 CONTRACT_STATUSES = ["active", "paused", "stopped", "refund"]
@@ -563,6 +572,138 @@ def register(app, *, auth, page_context, lang_of, remember, settings, db, templa
         conn.commit()
         log_admin(conn, settings.dash_user, "list.delete", ev["sheet_contract_id"], {"event": ev["event"], "happened_at": ev["happened_at"]})
         return _redirect("/manage/lists", _t(lang_of(request), "mg.list_deleted"))
+
+    # ---- monthly report ---------------------------------------------------
+    def _shift_month(month: str, delta: int) -> str:
+        y, m = int(month[:4]), int(month[5:7]) + delta
+        while m < 1:
+            y, m = y - 1, m + 12
+        while m > 12:
+            y, m = y + 1, m - 12
+        return f"{y:04d}-{m:02d}"
+
+    @app.get("/reports/month", response_class=HTMLResponse)
+    async def report_month(request: Request, month: str = "", _=Depends(auth)):
+        today = now_local(settings.tz).date()
+        month = month if _MONTH.match(month or "") else today.strftime("%Y-%m")
+        conn = db()
+        days = month_days(month)
+        return render(request, "reports/month.html", "reports", month=month, days=days, summary=month_summary(conn, month),
+                      rows=month_grid(conn, month), prev_month=_shift_month(month, -1), next_month=_shift_month(month, 1),
+                      today=today.isoformat(), day_from=days[0], day_to=days[-1])
+
+    # ---- import / export / runs -------------------------------------------
+    def _runs(conn, n: int = 20) -> list[dict]:
+        return [dict(r) for r in conn.execute("SELECT * FROM runs ORDER BY id DESC LIMIT ?", (n,))]
+
+    @app.get("/manage/data", response_class=HTMLResponse)
+    async def data_page(request: Request, _=Depends(auth)):
+        today = now_local(settings.tz).date().isoformat()
+        task = app.state.collector_task
+        running = _collector.is_running() or (task is not None and not task.done())
+        return render(request, "manage/data.html", "data", runs=_runs(db()), today=today, month_start=today[:8] + "01",
+                      collector_running=running, mtproto=settings.mtproto_enabled)
+
+    @app.post("/manage/data/import")
+    async def data_import(request: Request, _=Depends(auth)):
+        form = await request.form()
+        require_form_post(request, form.get("csrf"))
+        lang = lang_of(request)
+        seed_file, probe_file = form.get("seed"), form.get("probe")
+        try:
+            if seed_file is None or not hasattr(seed_file, "read"):
+                raise ValueError("seed file missing")
+            seed_obj = json.loads((await seed_file.read()).decode("utf-8"))
+            probe_obj = None
+            if probe_file is not None and hasattr(probe_file, "read"):
+                raw = await probe_file.read()
+                probe_obj = json.loads(raw.decode("utf-8")) if raw else None
+            if "contracts" not in seed_obj:
+                raise ValueError("seed must contain 'contracts'")
+        except (ValueError, UnicodeDecodeError) as e:
+            return _redirect("/manage/data", _t(lang, "dt.import_failed", err=str(e)[:120]), "bad")
+        st = import_seed(db(), seed_obj, probe_obj)
+        log_admin(db(), settings.dash_user, "data.import", seed_obj.get("source_sheet"), st.as_dict())
+        return _redirect("/manage/data", _t(lang, "dt.imported", c=st.contracts, ch=st.channels, a=st.aliases))
+
+    @app.post("/manage/data/run/{kind}")
+    async def data_run(request: Request, kind: str, _=Depends(auth)):
+        form = await request.form()
+        require_form_post(request, form.get("csrf"))
+        lang = lang_of(request)
+        conn = db()
+        if kind == "rollup":
+            day = (form.get("date") or "").strip() or now_local(settings.tz).date().isoformat()
+            try:
+                day = dt.date.fromisoformat(day).isoformat()
+            except ValueError:
+                return _redirect("/manage/data", _t(lang, "err.date"), "bad")
+            n = rollup_date(conn, day, settings)
+            log_admin(conn, settings.dash_user, "data.rollup", day, {"rows": n})
+            return _redirect("/manage/data", _t(lang, "dt.rollup_done", d=day, n=n))
+        if kind == "collector":
+            task = app.state.collector_task
+            if _collector.is_running() or (task is not None and not task.done()):
+                return _redirect("/manage/data", _t(lang, "dt.collector_busy"), "bad")
+
+            async def _run():
+                own = settings.db_path != ":memory:"
+                c = connect(settings.db_path) if own else conn
+                try:
+                    await run_public_collector(c, settings)
+                finally:
+                    if own:
+                        c.close()
+            task = asyncio.create_task(_run())
+            task.add_done_callback(lambda t: t.exception() and logging.getLogger("audit.web").error("collector task failed: %r", t.exception()))
+            app.state.collector_task = task
+            log_admin(conn, settings.dash_user, "data.collector", None)
+            return _redirect("/manage/data", _t(lang, "dt.collector_started"))
+        if kind == "mtproto":
+            if not settings.mtproto_enabled:
+                return _redirect("/manage/data", _t(lang, "dt.mtproto_off"), "bad")
+            from .mtproto import run_mtproto_collector
+            st = await run_mtproto_collector(conn, settings)
+            log_admin(conn, settings.dash_user, "data.mtproto", None, st)
+            return _redirect("/manage/data", _t(lang, "dt.mtproto_done"))
+        raise HTTPException(status_code=404, detail="unknown job")
+
+    # ---- settings & status --------------------------------------------------
+    def _mask(v) -> str | None:
+        if not v:
+            return None
+        s = str(v)
+        return "••••" + s[-2:] if len(s) > 4 else "••••"
+
+    @app.get("/manage/settings", response_class=HTMLResponse)
+    async def settings_page(request: Request, _=Depends(auth)):
+        conn = db()
+        s = settings
+        items = [
+            ("DB_PATH", s.db_path, False), ("AUDIT_TZ", s.tz, False), ("HASHTAG", s.hashtag, False),
+            ("HASHTAG_ENFORCED_FROM", s.hashtag_enforced_from, False), ("DASH_USER", s.dash_user, False),
+            ("DASH_PASSWORD", _mask(s.dash_password), True), ("COLLECTOR_INTERVAL_MIN", s.collector_interval_min, False),
+            ("FETCH_DELAY_MIN / MAX", f"{s.fetch_delay_min} / {s.fetch_delay_max}", False),
+            ("BOT_TOKEN", _mask(s.bot_token), True), ("OWNER_CHAT_ID", s.owner_chat_id, False), ("ALERT_LANGS", ",".join(s.alert_langs), False),
+            ("TG_API_ID", s.tg_api_id, False), ("TG_API_HASH", _mask(s.tg_api_hash), True), ("TG_SESSION", _mask(s.tg_session), True),
+            ("MAX_JOINS_PER_RUN", s.max_joins_per_run, False),
+        ]
+        jobs = []
+        sched = getattr(app.state, "scheduler", None)
+        if sched:
+            for j in sched.get_jobs():
+                nxt = getattr(j, "next_run_time", None)
+                jobs.append({"name": j.name, "next": nxt.isoformat(timespec="minutes") if nxt else "—"})
+        health = {
+            "contracts": conn.execute("SELECT COUNT(*) FROM contracts").fetchone()[0],
+            "channels": conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0],
+            "posts": conn.execute("SELECT COUNT(*) FROM posts").fetchone()[0],
+            "rollups": conn.execute("SELECT COUNT(*) FROM daily_rollup").fetchone()[0],
+            "db_mb": round(os.path.getsize(s.db_path) / 1048576, 1) if s.db_path != ":memory:" and os.path.exists(s.db_path) else None,
+        }
+        log = [dict(r) for r in conn.execute("SELECT * FROM admin_log ORDER BY id DESC LIMIT 50")]
+        return render(request, "manage/settings.html", "settings", items=items, jobs=jobs, health=health, log=log, runs=_runs(conn, 10),
+                      mtproto=s.mtproto_enabled, alerts=s.alerts_enabled)
 
     @app.post("/manage/contracts/{contract_id}/channels/{channel_id}/detach")
     async def contract_detach_channel(request: Request, contract_id: int, channel_id: int, _=Depends(auth)):

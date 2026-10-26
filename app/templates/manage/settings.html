@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% set page_icon = "⚙️" %}{% set page_title = t('nav.settings') %}
+{% block title %}{{ t('nav.settings') }} — Platinum audit{% endblock %}
+{% block body %}
+<section class="kpis">
+  <div class="kpi info"><div class="lb">{{ t('st.contracts') }}</div><div class="v">{{ health.contracts }}</div></div>
+  <div class="kpi unv"><div class="lb">{{ t('st.channels') }}</div><div class="v">{{ health.channels }}</div></div>
+  <div class="kpi pink"><div class="lb">{{ t('st.posts') }}</div><div class="v">{{ "{:,}".format(health.posts) }}</div></div>
+  <div class="kpi orange"><div class="lb">{{ t('st.rollups') }}</div><div class="v">{{ "{:,}".format(health.rollups) }}{% if health.db_mb is not none %}<small>{{ health.db_mb }} MB</small>{% endif %}</div></div>
+  <div class="kpi {{ 'ok' if mtproto else 'bad' }}"><div class="lb">MTProto</div><div class="v">{{ t('st.on') if mtproto else t('st.off') }}</div></div>
+  <div class="kpi {{ 'ok' if alerts else 'bad' }}"><div class="lb">{{ t('st.alerts') }}</div><div class="v">{{ t('st.on') if alerts else t('st.off') }}</div></div>
+</section>
+
+<div class="grid2">
+  <div class="panel" style="margin:0">
+    <div class="phead"><h2>{{ t('st.settings_title') }}</h2><span class="spacer"></span><span class="hint">{{ t('st.env_hint') }}</span></div>
+    <div class="scroll"><table>
+      <thead><tr><th>{{ t('st.key') }}</th><th>{{ t('st.value') }}</th></tr></thead>
+      <tbody>{% for k, v, secret in items %}<tr><td class="mono small">{{ k }}</td><td class="mono small">{% if v is none %}<span class="muted">{{ t('st.secret_unset') if secret else "—" }}</span>{% else %}{{ v }}{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </div>
+
+  <div class="panel" style="margin:0">
+    <div class="phead"><h2>{{ t('st.jobs_title') }}</h2></div>
+    <div class="scroll"><table>
+      <thead><tr><th>{{ t('st.job') }}</th><th>{{ t('st.next_run') }}</th></tr></thead>
+      <tbody>{% for j in jobs %}<tr><td class="small">{{ j.name }}</td><td class="mono small">{{ j.next }}</td></tr>{% else %}<tr><td colspan="2" class="muted">{{ t('st.no_scheduler') }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <div class="phead" style="border-top:1px solid var(--line)"><h2>{{ t('dt.runs_title') }}</h2></div>
+    <div class="scroll"><table>
+      <thead><tr><th>{{ t('dt.kind') }}</th><th>{{ t('dt.finished') }}</th><th>{{ t('dt.result') }}</th></tr></thead>
+      <tbody>{% for r in runs %}<tr><td><span class="tag {{ 'ok' if r.ok else 'bad' }}">{{ r.kind }}</span></td><td class="mono small">{{ (r.finished_at or "—")[:16]|replace("T"," ") }}</td><td class="small mono" style="overflow-wrap:anywhere">{{ (r.detail or "")[:120] }}</td></tr>{% else %}<tr><td colspan="3" class="muted">{{ t('mg.none') }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </div>
+</div>
+
+<div class="panel" style="margin-top:14px">
+  <div class="phead"><h2>{{ t('st.log_title') }}</h2><span class="spacer"></span><span class="muted small">{{ t('mg.count', n=log|length) }}</span></div>
+  <div class="scroll"><table>
+    <thead><tr><th>{{ t('st.at') }}</th><th>{{ t('st.user') }}</th><th>{{ t('st.action') }}</th><th>{{ t('st.target') }}</th><th>{{ t('st.detail') }}</th></tr></thead>
+    <tbody>{% for l in log %}<tr><td class="mono small">{{ l.at[:16]|replace("T"," ") }}</td><td class="small">{{ l.user or "—" }}</td><td class="mono small">{{ l.action }}</td><td class="mono small">{{ l.target or "—" }}</td><td class="small mono" style="overflow-wrap:anywhere;max-width:40rem">{{ (l.detail or "")[:200] }}</td></tr>{% else %}<tr><td colspan="5" class="muted">{{ t('mg.none') }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

@@ -259,5 +259,89 @@ class TestLists(ManageCase):
         self.assertIsNone(one(self.conn, "SELECT 1 FROM channel_events WHERE id=?", (ev_id,)))
 
 
+class TestReports(ManageCase):
+    def setUp(self):
+        super().setUp()
+        self.conn.execute("UPDATE channels SET last_checked='2026-10-25T12:00:00+00:00' WHERE collector='preview'")
+        chana = one(self.conn, "SELECT id FROM channels WHERE channel_key='pub:chana'")["id"]
+        upsert_post(self.conn, chana, POST, "preview", load_settings({}))
+        rollup_date(self.conn, "2026-10-24", load_settings({}), now_local=AFTER)
+        rollup_date(self.conn, "2026-10-25", load_settings({}), now_local=AFTER)
+
+    def test_month_summary_numbers(self):
+        from app.reports import month_summary
+        s = month_summary(self.conn, "2026-10")
+        fee = one(self.conn, "SELECT COALESCE(SUM(amount_mmk),0) AS f FROM contracts WHERE month='2026-10' AND status IN ('active','paused')")["f"]
+        self.assertEqual((s["contracts"], s["fee_total"], s["days_computed"]), (2, fee, 2))
+        self.assertEqual(s["ok_days"], 1)
+        self.assertEqual(s["missed_days"], one(self.conn, "SELECT COUNT(*) AS n FROM daily_rollup WHERE status='missed'")["n"])
+        self.assertGreaterEqual(s["channels_public"] + s["channels_private"], 3)
+        self.assertEqual(month_summary(self.conn, "2025-01")["contracts"], 0)
+
+    def test_month_grid_cells(self):
+        from app.reports import month_days, month_grid
+        self.assertEqual(len(month_days("2026-10")), 31)
+        self.assertEqual(len(month_days("2026-02")), 28)
+        rows = month_grid(self.conn, "2026-10")
+        self.assertEqual(len(rows), 2)
+        r005 = next(r for r in rows if r["sheet_contract_id"] == "2026-10-r005")
+        self.assertEqual(len(r005["cells"]), 31)
+        by_day = {c["date"]: c["status"] for c in r005["cells"]}
+        self.assertEqual((by_day["2026-10-25"], by_day["2026-10-24"], by_day["2026-10-01"]), ("ok", "missed", None))
+        self.assertEqual((r005["ok"], r005["missed"]), (1, 1))
+        self.assertEqual(month_grid(self.conn, "2025-01"), [])
+
+    def test_report_page_renders_and_tolerates_empty_month(self):
+        r = self.client.get("/reports/month?month=2026-10&lang=en")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('data-day="2026-10-25"', r.text)
+        self.assertIn("Chan A", r.text)
+        self.assertEqual(self.client.get("/reports/month?month=2025-01").status_code, 200)
+        self.assertEqual(self.client.get("/reports/month?month=garbage").status_code, 200)
+
+
+class TestDataAndSettings(ManageCase):
+    def test_data_page_renders(self):
+        r = self.client.get("/manage/data?lang=en")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('enctype="multipart/form-data"', r.text)
+        self.assertIn("/export.csv", r.text)
+
+    def test_import_via_form_and_bad_json(self):
+        r = self.client.post("/manage/data/import", data={"csrf": self.csrf},
+                             files={"seed": ("seed.json", FIX.read_bytes(), "application/json")}, follow_redirects=False)
+        self.assertEqual(r.status_code, 303, r.text)
+        self.assertEqual(one(self.conn, "SELECT COUNT(*) AS n FROM runs WHERE kind='import'")["n"], 2)   # setUp import + this one
+        r = self.client.post("/manage/data/import", data={"csrf": self.csrf},
+                             files={"seed": ("seed.json", b"{not json", "application/json")}, follow_redirects=False)
+        self.assertEqual(r.status_code, 303)
+        self.assertIn("flash=", r.headers.get("set-cookie", ""))
+        self.assertEqual(one(self.conn, "SELECT COUNT(*) AS n FROM runs WHERE kind='import'")["n"], 2)
+
+    def test_run_rollup_via_form_requires_csrf(self):
+        r = self.client.post("/manage/data/run/rollup", data={"date": D}, follow_redirects=False)
+        self.assertEqual(r.status_code, 403)
+        r = self.post("/manage/data/run/rollup", date=D)
+        self.assertEqual(r.status_code, 303)
+        self.assertEqual(one(self.conn, "SELECT COUNT(*) AS n FROM daily_rollup WHERE local_date=?", (D,))["n"], 2)
+        self.assertEqual(self.post("/manage/data/run/bogus").status_code, 404)
+
+    def test_settings_page_masks_secrets_and_shows_log(self):
+        conn = connect(":memory:")
+        migrate(conn)
+        import_seed(conn, SEED)
+        client = TestClient(create_app(load_settings({"DASH_PASSWORD": "secretpw", "BOT_TOKEN": "123:abcDEF", "OWNER_CHAT_ID": "42"}), conn=conn))
+        client.get("/manage/contracts", auth=("admin", "secretpw"))
+        csrf = client.cookies.get("csrf")
+        cid = one(conn, "SELECT id FROM contracts WHERE sheet_contract_id='2026-10-r005'")["id"]
+        client.post(f"/manage/contracts/{cid}/edit", data=dict(TestContracts.CREATE, names="Chan A", csrf=csrf), auth=("admin", "secretpw"), follow_redirects=False)
+        r = client.get("/manage/settings?lang=en", auth=("admin", "secretpw"))
+        self.assertEqual(r.status_code, 200)
+        self.assertNotIn("secretpw", r.text)
+        self.assertNotIn("123:abcDEF", r.text)
+        self.assertIn("Asia/Yangon", r.text)
+        self.assertIn("contract.update", r.text)
+
+
 if __name__ == "__main__":
     unittest.main()
