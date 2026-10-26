@@ -40,7 +40,7 @@ a{color:var(--accent)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 ::selection{background:rgba(236,77,139,.35)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.muted{color:var(--mut)}.small{font-size:12.5px}.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--mut)}.small{font-size:12.5px}.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}.nowrap{white-space:nowrap}
 code{font:12.5px var(--mono);background:var(--raise);padding:1px 6px;border-radius:6px}
 
 /* ---------- shell: sidebar + topbar ---------- */
@@ -53,7 +53,8 @@ code{font:12.5px var(--mono);background:var(--raise);padding:1px 6px;border-radi
 .sbitem:hover{background:var(--raise);color:var(--ink)}
 .sbitem.on{background:linear-gradient(90deg,rgba(236,77,139,.18),rgba(139,92,246,.10));color:var(--accent)}
 .sbitem:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-.sbfoot{margin-top:auto;padding:12px 18px;border-top:1px solid var(--line);font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px}
+.sbfoot{margin-top:auto;padding:12px 18px;border-top:1px solid var(--line);font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.sbfoot code{font-size:11px;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block}
 .dot.off{background:var(--dim)}
 .appmain{margin-left:220px;min-height:100vh}
@@ -95,7 +96,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;cursor:pointer;acc
 
 /* ---------- KPI tiles (Recon gradient strip) ---------- */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:0 0 14px}
-.kpi{display:block;border:0;border-radius:14px;padding:12px 14px;color:#fff;box-shadow:var(--shadow);background:linear-gradient(135deg,#f2568c,#c2449b);text-decoration:none;transition:transform .12s}
+.kpi{display:block;min-width:0;overflow:hidden;border:0;border-radius:14px;padding:12px 14px;color:#fff;box-shadow:var(--shadow);background:linear-gradient(135deg,#f2568c,#c2449b);text-decoration:none;transition:transform .12s}
 .kpi:hover{transform:translateY(-1px);filter:brightness(1.04)}
 .kpi:nth-child(4n+2){background:linear-gradient(135deg,#8a63f4,#5b4ae0)}
 .kpi:nth-child(4n+3){background:linear-gradient(135deg,#41b3ff,#5a6cf3)}
@@ -109,7 +110,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;cursor:pointer;acc
 .kpi.orange{background:linear-gradient(135deg,#ffb54d,#ff7e5f)}
 .kpi.sel{outline:3px solid rgba(255,255,255,.75);outline-offset:-3px}
 .kpi .lb{font-size:11px;color:rgba(255,255,255,.88);text-transform:uppercase;letter-spacing:.07em;line-height:1.4}
-.kpi .v{font:600 23px/1.2 var(--mono);font-variant-numeric:tabular-nums;margin-top:2px;color:#fff}
+.kpi .v{font:600 clamp(17px,1.5vw,23px)/1.2 var(--mono);font-variant-numeric:tabular-nums;margin-top:2px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi .v small{font:600 11px var(--sans);opacity:.85;margin-left:4px}
 
 /* ---------- panels ---------- */
@@ -235,6 +236,7 @@ h2.sec::before{content:'◆ ';color:var(--accent);font-size:9px;vertical-align:1
 .form .f input,.form .f select,.form .f textarea{width:100%}
 .form .f .help{font-size:11.5px;color:var(--mut)}
 .form textarea{min-height:72px;resize:vertical}
+.form .f .btn{align-self:flex-start}
 .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
 .inline{display:inline}
 .rowacts{display:flex;gap:6px;flex-wrap:wrap}
@@ -247,6 +249,14 @@ h2.sec::before{content:'◆ ';color:var(--accent);font-size:9px;vertical-align:1
   .topbar{gap:6px;padding:0 8px}
   .topbar .who{display:none}
   .content{padding:10px 12px 40px}
+}
+@media (max-width:640px){
+  .ptitle{display:none}
+  .topbar .btn{padding:5px 8px;font-size:12px;min-height:32px}
+  .topbar .langs a{padding:0 7px;min-height:24px}
+  .topbar .lg{display:none}
+  .kpis{grid-template-columns:repeat(2,1fr);gap:8px}
+  .kpi{padding:10px 12px}
 }
 @media (max-width:47.9rem){
   .ledger thead{display:none}
@@ -306,7 +316,7 @@ h2.sec::before{content:'◆ ';color:var(--accent);font-size:9px;vertical-align:1
     <nav class="langs" aria-label="{{ t('nav.lang') }}">{% for l in langs %}<a href="{{ switch[l] }}" hreflang="{{ l }}" lang="{{ l }}"{% if l == lang %} aria-current="true"{% endif %}>{{ lang_names[l] }}</a>{% endfor %}</nav>
     <button class="btn" id="themeBtn" type="button" data-light="☀️ {{ t('nav.theme_light') }}" data-dark="🌙 {{ t('nav.theme_dark') }}">🌙 {{ t('nav.theme_dark') }}</button>
     <span class="who">{{ t('nav.who', u=who) }}</span>
-    <a class="btn" href="/logout">{{ t('nav.logout') }}</a>
+    <a class="btn" href="/logout" aria-label="{{ t('nav.logout') }}" title="{{ t('nav.logout') }}">⎋<span class="lg"> {{ t('nav.logout') }}</span></a>
   </header>
   <main class="content">
     {% if flash %}<div class="flash{% if flash.kind == 'bad' %} bad{% endif %}">{{ flash.text }}</div>{% endif %}

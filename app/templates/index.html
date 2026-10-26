@@ -30,7 +30,7 @@
   <a class="kpi unv{% if status == 'unverifiable' %} sel{% endif %}" href="/?date={{ day }}&status=unverifiable"><div class="lb">{{ t('kpi.unverifiable') }}</div><div class="v">{{ counts.unverifiable }}</div></a>
   <a class="kpi info{% if not status %} sel{% endif %}" href="/?date={{ day }}"><div class="lb">{{ t('kpi.total') }}</div><div class="v">{{ summary.total }}</div></a>
   <div class="kpi pink"><div class="lb">{{ t('kpi.posts', d=day) }}</div><div class="v">{{ summary.posts }}</div></div>
-  <div class="kpi orange"><div class="lb">{{ t('kpi.fee_month') }}</div><div class="v">{{ "{:,}".format(fee_total or 0) }}<small>MMK</small></div></div>
+  <div class="kpi orange" title="{{ "{:,}".format(fee_total or 0) }} MMK"><div class="lb">{{ t('kpi.fee_month') }} (MMK)</div><div class="v">{% if (fee_total or 0) >= 1000000 %}{{ "%.2f"|format((fee_total or 0) / 1000000) }}<small>M</small>{% else %}{{ "{:,}".format(fee_total or 0) }}{% endif %}</div></div>
 </section>
 
 <section class="hero panel" aria-label="{{ t('hero.bar_label') }}">

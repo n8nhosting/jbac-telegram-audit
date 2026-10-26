@@ -89,12 +89,16 @@ class TestRenderedPages(unittest.TestCase):
         rollup_date(self.conn, D, load_settings({}), now_local=AFTER)
 
     def test_no_untranslated_keys_leak_into_pages(self):
+        c1 = one(self.conn, "SELECT id FROM contracts WHERE sheet_contract_id='2026-10-r005'")["id"]
+        ch = one(self.conn, "SELECT id FROM channels WHERE channel_key='pub:chana'")["id"]
+        pages = [f"/?date={D}", f"/contracts/{c1}?date={D}", "/manage/contracts", "/manage/contracts/new", f"/manage/contracts/{c1}/edit",
+                 "/manage/channels", "/manage/channels/new", f"/manage/channels/{ch}/edit", "/manage/regs?to=2026-10&months=3",
+                 "/manage/lists", "/reports/month?month=2026-10", "/manage/data", "/manage/settings"]
         for lang in LANGS:
-            html = self.client.get(f"/?date={D}&lang={lang}").text
-            self.assertIsNone(RAW_KEY.search(html), (lang, RAW_KEY.search(html)))
-            c1 = one(self.conn, "SELECT id FROM contracts WHERE sheet_contract_id='2026-10-r005'")["id"]
-            detail = self.client.get(f"/contracts/{c1}?date={D}&lang={lang}").text
-            self.assertIsNone(RAW_KEY.search(detail), (lang, RAW_KEY.search(detail)))
+            for page in pages:
+                r = self.client.get(f"{page}{'&' if '?' in page else '?'}lang={lang}")
+                self.assertEqual(r.status_code, 200, (lang, page))
+                self.assertIsNone(RAW_KEY.search(r.text), (lang, page, RAW_KEY.search(r.text)))
 
     def test_overview_has_hero_bands_and_status_glyphs(self):
         html = self.client.get(f"/?date={D}&lang=en").text

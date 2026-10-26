@@ -25,12 +25,12 @@
     <tbody>
     {% for r in rows %}
     <tr>
-      <td class="mono small">{{ r.sheet_contract_id }}{% if r.manual_locked %} <span class="tag info" title="{{ t('mg.locked_hint') }}">🔒</span>{% endif %}</td>
+      <td class="mono small nowrap">{{ r.sheet_contract_id }}{% if r.manual_locked %} <span class="tag info" title="{{ t('mg.locked_hint') }}">🔒</span>{% endif %}</td>
       <td><a class="nm" href="/contracts/{{ r.id }}">{{ r.names_list|join(" / ") or r.sheet_contract_id }}</a>{% if r.admins_list %}<div class="sub">{{ r.admins_list|join(" ") }}</div>{% endif %}</td>
       <td>{{ t('sec.' ~ (r.section or 'unknown')) }}</td>
-      <td>{% if r.quota_type == 'daily_post' %}{{ t('row.posts_per_day', n=r.quota_posts_per_day) }}{% else %}{{ t('row.custom') }}{% endif %}<div class="sub">{{ r.pin_label }}</div></td>
+      <td class="nowrap">{% if r.quota_type == 'daily_post' %}{{ t('row.posts_per_day', n=r.quota_posts_per_day) }}{% else %}{{ t('row.custom') }}{% endif %}<div class="sub">{{ r.pin_label }}</div></td>
       <td class="num">{{ "{:,}".format(r.amount_mmk) if r.amount_mmk else "—" }}</td>
-      <td class="mono small">{{ r.period_from or "?" }} – {{ r.period_to or "?" }}</td>
+      <td class="mono small nowrap">{{ r.period_from or "?" }} – {{ r.period_to or "?" }}</td>
       <td><span class="tag {{ 'ok' if r.status == 'active' else ('warn' if r.status == 'paused' else 'bad') }}">{{ t('cs.' ~ r.status) }}</span></td>
       <td class="num">{{ r.n_channels }}</td>
       <td><a class="btn btn-sm" href="/manage/contracts/{{ r.id }}/edit">✎ {{ t('mg.edit') }}</a></td>

@@ -15,9 +15,9 @@
 
 <section class="kpis" aria-label="{{ t('rp.month') }}">
   <div class="kpi info"><div class="lb">{{ t('rp.contracts') }}</div><div class="v">{{ summary.contracts }}</div></div>
-  <div class="kpi orange"><div class="lb">{{ t('rp.fee') }}</div><div class="v">{{ "{:,}".format(summary.fee_total) }}<small>MMK</small></div></div>
+  <div class="kpi orange" title="{{ "{:,}".format(summary.fee_total) }} MMK"><div class="lb">{{ t('rp.fee') }} (MMK)</div><div class="v">{% if summary.fee_total >= 1000000 %}{{ "%.2f"|format(summary.fee_total / 1000000) }}<small>M</small>{% else %}{{ "{:,}".format(summary.fee_total) }}{% endif %}</div></div>
   <div class="kpi pink"><div class="lb">{{ t('rp.reg') }}</div><div class="v">{{ summary.reg_total }}</div></div>
-  <div class="kpi unv"><div class="lb">{{ t('rp.channels') }}</div><div class="v">{{ summary.channels_public }}<small>{{ t('rp.pub') }}</small> {{ summary.channels_private }}<small>{{ t('rp.prv') }}</small></div></div>
+  <div class="kpi unv" title="{{ t('rp.pub') }} {{ summary.channels_public }} · {{ t('rp.prv') }} {{ summary.channels_private }}"><div class="lb">{{ t('rp.channels') }} ({{ t('rp.pub') }} / {{ t('rp.prv') }})</div><div class="v">{{ summary.channels_public }} / {{ summary.channels_private }}</div></div>
   <div class="kpi {{ 'ok' if summary.ok_rate is not none and summary.ok_rate >= 80 else ('warn' if summary.ok_rate is not none else 'unv') }}"><div class="lb">{{ t('rp.ok_rate') }}</div><div class="v">{% if summary.ok_rate is not none %}{{ summary.ok_rate }}<small>%</small>{% else %}—{% endif %}</div></div>
   <div class="kpi bad"><div class="lb">{{ t('rp.action_days') }}</div><div class="v">{{ summary.action_days }}</div></div>
   <div class="kpi info"><div class="lb">{{ t('rp.days_computed') }}</div><div class="v">{{ summary.days_computed }}<small>/ {{ days|length }}</small></div></div>

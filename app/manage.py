@@ -693,7 +693,8 @@ def register(app, *, auth, page_context, lang_of, remember, settings, db, templa
         if sched:
             for j in sched.get_jobs():
                 nxt = getattr(j, "next_run_time", None)
-                jobs.append({"name": j.name, "next": nxt.isoformat(timespec="minutes") if nxt else "—"})
+                label = (j.name or "").rsplit(".", 1)[-1].replace("job_", "")      # build_scheduler.<locals>.job_rollup → rollup
+                jobs.append({"name": label, "next": nxt.isoformat(timespec="minutes") if nxt else "—"})
         health = {
             "contracts": conn.execute("SELECT COUNT(*) FROM contracts").fetchone()[0],
             "channels": conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0],
